@@ -22,10 +22,17 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-activemq</artifactId>
         </dependency>
-        <dependency>
+        <!-- we should be using this but it isn't in our repo
+             yet so pull straight from github for now -->
+        <!--<dependency>
              <groupId>eu.openminted</groupId>
              <artifactId>omtd-workflow-api</artifactId>
              <version>1.0.0</version>
+        </dependency>-->
+        <dependency>
+            <groupId>com.github.openminted</groupId>
+            <artifactId>omtd-workflow-api</artifactId>
+            <version>-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>eu.openminted</groupId>
