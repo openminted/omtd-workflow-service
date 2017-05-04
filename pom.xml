@@ -32,6 +32,11 @@
             <artifactId>omtd-store-rest-client</artifactId>
             <version>0.0.1-SNAPSHOT</version>
         </dependency>
+        <dependency>
+            <groupId>com.github.Arpic</groupId>
+            <artifactId>blend4j</artifactId>
+            <version>-SNAPSHOT</version>
+	</dependency>
     </dependencies>
 
     <repositories>
@@ -57,6 +62,10 @@
         <repository>
             <id>spring-milestones</id>
             <url>http://repo.spring.io/milestone</url>
+        </repository>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
         </repository>
     </repositories>
     <pluginRepositories>
