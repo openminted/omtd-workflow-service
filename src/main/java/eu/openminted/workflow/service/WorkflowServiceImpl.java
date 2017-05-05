@@ -1,20 +1,16 @@
 package eu.openminted.workflow.service;
 
-import eu.openminted.workflow.api.*;
-
-import org.springframework.boot.*;
-import org.springframework.boot.autoconfigure.*;
-import org.springframework.stereotype.*;
-import org.springframework.web.bind.annotation.*;
-
 import java.io.File;
 import java.io.IOException;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.github.jmchilton.blend4j.galaxy.GalaxyInstance;
-import com.github.jmchilton.blend4j.galaxy.GalaxyInstanceFactory;
 import com.github.jmchilton.blend4j.galaxy.HistoriesClient;
 import com.github.jmchilton.blend4j.galaxy.ToolsClient;
 import com.github.jmchilton.blend4j.galaxy.WorkflowsClient;
@@ -27,14 +23,14 @@ import com.github.jmchilton.blend4j.galaxy.beans.ToolExecution;
 import com.github.jmchilton.blend4j.galaxy.beans.Workflow;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowDetails;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputDefinition;
-import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputs;
-import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputs.ExistingHistory;
-import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputs.InputSourceType;
-import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputs.WorkflowInput;
-import com.github.jmchilton.blend4j.galaxy.beans.WorkflowOutputs;
 import com.google.common.base.Charsets;
 import com.google.common.collect.Lists;
 import com.google.common.io.Resources;
+
+import eu.openminted.workflow.api.ExecutionStatus;
+import eu.openminted.workflow.api.WorkflowException;
+import eu.openminted.workflow.api.WorkflowJob;
+import eu.openminted.workflow.api.WorkflowService;
 
 @RestController
 @EnableAutoConfiguration
@@ -49,6 +45,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         SpringApplication.run(WorkflowService.class, args);
     }
 
+    @Override
     public String execute(WorkflowJob workflowJob) throws WorkflowException {
 	//get workflow from job, it's a Component instance so will then need to get it out of there
 	//question is what does that object contain and where is the workflow file actually stored?
@@ -65,18 +62,22 @@ public class WorkflowServiceImpl implements WorkflowService {
         return null;
     }
 
+    @Override
     public void cancel(String workflowExecutionId)  throws WorkflowException {
 
     }
 
+    @Override
     public void pause(String workflowExecutionId) throws WorkflowException {
 
     }
 
+    @Override
     public void resume(String workflowExecutionId) throws WorkflowException {
 
     }
 
+    @Override
     public ExecutionStatus getExecutionStatus(String workflowExecutionId) throws WorkflowException {
 	//assuming execution has started this should be a case of polling galaxy as in the existing
 	//demo code, to figure out where it's at, we just then need to wrap that as an ExecutionStatus
