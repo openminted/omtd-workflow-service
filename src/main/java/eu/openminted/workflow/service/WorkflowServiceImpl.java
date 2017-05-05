@@ -6,8 +6,10 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -44,16 +46,19 @@ import eu.openminted.workflow.api.WorkflowService;
 public class WorkflowServiceImpl implements WorkflowService {
 
 	// these should probably both be set via injection
-	final String galaxyInstanceUrl = "http://localhost:8899";
-	final String galaxyApiKey = "4454f8849b3d30e1a6551727f871dbd7";
+	@Value("${galaxy.url}")
+	private String galaxyInstanceUrl;
+	
+	@Value("${galaxy.apiKey}")
+	private String galaxyApiKey;
 
 	@RequestMapping("/")
 	String home() {
-		return "omtd-workflow-service";
+		return "omtd-workflow-service for <a href=\""+galaxyInstanceUrl+"\">galaxy</a>";
 	}
 
 	public static void main(String[] args) throws Exception {
-		SpringApplication.run(WorkflowService.class, args);
+		SpringApplication.run(WorkflowServiceImpl.class, args);
 	}
 
 	@Override
