@@ -90,6 +90,8 @@ public class WorkflowServiceImpl implements WorkflowService {
 		final File outputDir = new File("output");
 		HistoriesClient historiesClient = instance.getHistoriesClient();
 
+		String corpusId = workflowJob.getCorpusId();
+		
 		// create a new history for this run and upload the input files to it
 		final String historyId = createHistory(instance, "OpenMinTeD Registry Integration: " + (new Date()));
 		final List<String> ids = populateDatasets(instance, historyId, inputDir.listFiles());
