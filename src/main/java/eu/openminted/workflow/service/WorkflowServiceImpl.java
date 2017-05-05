@@ -2,6 +2,7 @@ package eu.openminted.workflow.service;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.github.jmchilton.blend4j.galaxy.GalaxyInstance;
+import com.github.jmchilton.blend4j.galaxy.GalaxyInstanceFactory;
 import com.github.jmchilton.blend4j.galaxy.HistoriesClient;
 import com.github.jmchilton.blend4j.galaxy.ToolsClient;
 import com.github.jmchilton.blend4j.galaxy.WorkflowsClient;
@@ -23,6 +25,11 @@ import com.github.jmchilton.blend4j.galaxy.beans.ToolExecution;
 import com.github.jmchilton.blend4j.galaxy.beans.Workflow;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowDetails;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputDefinition;
+import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputs;
+import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputs.ExistingHistory;
+import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputs.InputSourceType;
+import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputs.WorkflowInput;
+import com.github.jmchilton.blend4j.galaxy.beans.WorkflowOutputs;
 import com.google.common.base.Charsets;
 import com.google.common.collect.Lists;
 import com.google.common.io.Resources;
@@ -36,6 +43,10 @@ import eu.openminted.workflow.api.WorkflowService;
 @EnableAutoConfiguration
 public class WorkflowServiceImpl implements WorkflowService {
 
+	// these should probably both be set via injection
+	final String galaxyInstanceUrl = "http://localhost:8899";
+	final String galaxyApiKey = "4454f8849b3d30e1a6551727f871dbd7";
+
 	@RequestMapping("/")
 	String home() {
 		return "omtd-workflow-service";
@@ -47,24 +58,88 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 	@Override
 	public String execute(WorkflowJob workflowJob) throws WorkflowException {
-		// get workflow from job, it's a Component instance so will then need to
-		// get it out of there
-		// question is what does that object contain and where is the workflow
-		// file actually stored?
 
-		// download the corpus from the OMTD-STORE using the REST client. This
-		// should get us a folder
-		// but not sure the format of the contents has been fixed yet
+		// get a handle on the Galaxy instance we want to talk to
+		GalaxyInstance instance = GalaxyInstanceFactory.get(galaxyInstanceUrl, galaxyApiKey);
 
-		// run the workflow over the corups. can this be done in one shot or do
-		// we need to send each
-		// document in turn. Might depend on how the workflow is written?
+		/**
+		 * get workflow from job, it's a Component instance so will then need to
+		 * get it out of there. question is what does that object contain and
+		 * where is the workflow file actually stored?
+		 **/
 
-		// return an ID that can be used to lookup the workflow later so you can
-		// get the status.
-		// this probably means spawning a thread for the actual execution so we
-		// can monitor the
-		// status of the Galaxy job as it runs
+		// get clients for access to the workflows and histories
+		WorkflowsClient client = instance.getWorkflowsClient();
+
+		// make sure we have the workflow we want to run and get it's details
+		final String testWorkflowId = ensureHasWorkflow(client, "TestWorkflow1");
+		final WorkflowDetails workflowDetails = client.showWorkflow(testWorkflowId);
+
+		/**
+		 * download the corpus from the OMTD-STORE using the REST client. This
+		 * should get us a folder but not sure the format of the contents has
+		 * been fixed yet
+		 **/
+
+		final File inputDir = new File("input");
+		final File outputDir = new File("output");
+		HistoriesClient historiesClient = instance.getHistoriesClient();
+
+		// create a new history for this run and upload the input files to it
+		final String historyId = createHistory(instance, "OpenMinTeD Registry Integration: " + (new Date()));
+		final List<String> ids = populateDatasets(instance, historyId, inputDir.listFiles());
+
+		/**
+		 * run the workflow over the corups. can this be done in one shot or do
+		 * we need to send each document in turn. Might depend on how the
+		 * workflow is written?
+		 **/
+
+		// create a new workflow input in the correct history and referencing
+		// the files we just uploaded as the inputs
+		final WorkflowInputs inputs = new WorkflowInputs();
+		inputs.setDestination(new ExistingHistory(historyId));
+		inputs.setWorkflowId(testWorkflowId);
+		inputs.setInput(getWorkflowInputId(workflowDetails, "WorkflowInput1"),
+				new WorkflowInput(ids.get(0), InputSourceType.HDA));
+		inputs.setInput(getWorkflowInputId(workflowDetails, "WorkflowInput2"),
+				new WorkflowInput(ids.get(1), InputSourceType.HDA));
+
+		// run the workflow and get a handle on the outputs produced
+		final WorkflowOutputs output = client.runWorkflow(inputs);
+
+		// make sure the workflow has finished and the history is in the "ok"
+		// state before proceeding any further
+		try {
+			waitForHistory(historiesClient, output.getHistoryId());
+		} catch (InterruptedException e) {
+			// hmmmm that will mess things up
+			throw new WorkflowException("Interrupted waiting for a valid Galaxy history", e);
+		}
+
+		for (final String outputId : output.getOutputIds()) {
+			// for each output produced by the workflow....
+
+			// create a local file in which to store a copy of the output
+			File outputFile = new File(outputDir, outputId + ".txt");
+
+			// download this output into the local file
+			try {
+				historiesClient.downloadDataset(output.getHistoryId(), outputId, outputFile);
+			} catch (IOException e) {
+				// if we can't download the file then we have a problem....
+				throw new WorkflowException("Unable to download result from Galaxy history", e);
+			}
+
+			// as a bit of debugging print the file path and length
+			System.out.println(outputFile.getAbsolutePath() + ": " + outputFile.length());
+		}
+
+		/**
+		 * return an ID that can be used to lookup the workflow later so you can
+		 * get the status. this probably means spawning a thread for the actual
+		 * execution so we can monitor the status of the Galaxy job as it runs
+		 **/
 		return null;
 	}
 
@@ -120,7 +195,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 	 * @return the IDs of the uploaded files within the history instance
 	 */
 	static List<String> populateDatasets(final GalaxyInstance instance, final String historyId, File... files)
-			throws InterruptedException {
+			throws WorkflowException {
 
 		// TODO should we be doing this via the FileUploadRequest that takes
 		// Iterable<File> instead?
@@ -139,7 +214,13 @@ public class WorkflowServiceImpl implements WorkflowService {
 		}
 
 		// make sure everything has finished and the history is usable before...
-		waitForHistory(instance.getHistoriesClient(), historyId);
+		try {
+			waitForHistory(instance.getHistoriesClient(), historyId);
+		} catch (InterruptedException e) {
+			// we were interrupted waiting for the history. turn this into an
+			// exception we can throw
+			throw new WorkflowException("Interrupted waiting for valid Galaxy history", e);
+		}
 
 		// returning the list of IDs
 		return ids;
