@@ -2,14 +2,22 @@ package eu.openminted.workflow.service;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
-import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -36,6 +44,8 @@ import com.google.common.base.Charsets;
 import com.google.common.collect.Lists;
 import com.google.common.io.Resources;
 
+import eu.openminted.store.common.StoreResponse;
+import eu.openminted.store.restclient.StoreRESTClient;
 import eu.openminted.workflow.api.ExecutionStatus;
 import eu.openminted.workflow.api.WorkflowException;
 import eu.openminted.workflow.api.WorkflowJob;
@@ -48,13 +58,16 @@ public class WorkflowServiceImpl implements WorkflowService {
 	// these should probably both be set via injection
 	@Value("${galaxy.url}")
 	private String galaxyInstanceUrl;
-	
+
 	@Value("${galaxy.apiKey}")
 	private String galaxyApiKey;
 
+	@Value("${store.endpoint}")
+	private String storeEndpoint;
+
 	@RequestMapping("/")
 	String home() {
-		return "omtd-workflow-service for <a href=\""+galaxyInstanceUrl+"\">galaxy</a>";
+		return "omtd-workflow-service for <a href=\"" + galaxyInstanceUrl + "\">galaxy</a>";
 	}
 
 	public static void main(String[] args) throws Exception {
@@ -66,6 +79,8 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 		// get a handle on the Galaxy instance we want to talk to
 		GalaxyInstance instance = GalaxyInstanceFactory.get(galaxyInstanceUrl, galaxyApiKey);
+
+		StoreRESTClient storeClient = new StoreRESTClient(storeEndpoint);
 
 		/**
 		 * get workflow from job, it's a Component instance so will then need to
@@ -91,10 +106,43 @@ public class WorkflowServiceImpl implements WorkflowService {
 		HistoriesClient historiesClient = instance.getHistoriesClient();
 
 		String corpusId = workflowJob.getCorpusId();
+
+		File corpusZip;
+		try {
+			corpusZip = File.createTempFile("corpus", ".zip");
+			StoreResponse storeResponse = storeClient.downloadArchive(corpusId, corpusZip.getAbsolutePath());
+		} catch (IOException e) {
+			throw new WorkflowException("Unable to retrieve specified corpus with ID " + corpusId, e);
+		}
 		
 		// create a new history for this run and upload the input files to it
 		final String historyId = createHistory(instance, "OpenMinTeD Registry Integration: " + (new Date()));
-		final List<String> ids = populateDatasets(instance, historyId, inputDir.listFiles());
+		final List<String> ids = new ArrayList<String>();
+
+		try (FileSystem zipFs = FileSystems.newFileSystem(corpusZip.toURI(), new HashMap<>());) {
+
+			Path pathInZip = zipFs.getPath("/resources");
+
+			Files.walkFileTree(pathInZip, new SimpleFileVisitor<Path>() {
+				@Override
+				public FileVisitResult visitFile(Path filePath, BasicFileAttributes attrs) throws IOException {
+					
+					//this will fail as the filePath is inside a zip
+					//will probably have to copy to a temp file before uploading, sigh :(
+					OutputDataset dataset = upload(instance, historyId, filePath.toFile());
+
+					// and the ID to the list
+					ids.add(dataset.getId());
+
+					return FileVisitResult.CONTINUE;
+				}
+			});
+			
+			waitForHistory(instance.getHistoriesClient(), historyId);
+			
+		} catch (IOException | InterruptedException e) {
+			throw new WorkflowException("Unable to upload corpus to Galaxy history", e);
+		}
 
 		/**
 		 * run the workflow over the corups. can this be done in one shot or do
