@@ -159,7 +159,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 			}
 		} else {
 			try {
-				final File inputDir = new File("input/" + corpusId);
+				final File inputDir = new File(corpusId);
 
 				for (File f : inputDir.listFiles()) {
 					OutputDataset dataset = upload(instance, historyId, f);
