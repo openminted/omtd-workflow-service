@@ -78,14 +78,15 @@ public class WorkflowServiceImpl implements WorkflowService {
 	@Override
 	public String execute(WorkflowJob workflowJob) throws WorkflowException {
 
-		System.out.println("\n\n*************In execute: "+galaxyInstanceUrl);
-		
+		System.out.println("\n\n*************In execute: " + galaxyInstanceUrl);
+
 		// get a handle on the Galaxy instance we want to talk to
 		GalaxyInstance instance = GalaxyInstanceFactory.get(galaxyInstanceUrl, galaxyApiKey);
-		
+
 		System.out.println(instance);
 
-		StoreRESTClient storeClient = null; //new StoreRESTClient(storeEndpoint);
+		StoreRESTClient storeClient = null; // new
+											// StoreRESTClient(storeEndpoint);
 
 		/**
 		 * get workflow from job, it's a Component instance so will then need to
@@ -95,15 +96,16 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 		// get clients for access to the workflows and histories
 		WorkflowsClient client = instance.getWorkflowsClient();
-		
-		//This can't possible be sane, surely? :(
-		String workflowID = workflowJob.getWorkflow().getComponentInfo().getIdentificationInfo().getIdentifiers().get(0).getValue();
+
+		// This can't possible be sane, surely? :(
+		String workflowID = workflowJob.getWorkflow().getComponentInfo().getIdentificationInfo().getIdentifiers().get(0)
+				.getValue();
 
 		// make sure we have the workflow we want to run and get it's details
 		final String testWorkflowId = ensureHasWorkflow(client, workflowID);
-		
-		System.out.println("Workflow ID: "+testWorkflowId);
-		
+
+		System.out.println("Workflow ID: " + testWorkflowId);
+
 		final WorkflowDetails workflowDetails = client.showWorkflow(testWorkflowId);
 
 		/**
@@ -177,21 +179,22 @@ public class WorkflowServiceImpl implements WorkflowService {
 		 * we need to send each document in turn. Might depend on how the
 		 * workflow is written?
 		 **/
-		
+
 		for (String id : ids) {
-			// create a new workflow input in the correct history and referencing
+			// create a new workflow input in the correct history and
+			// referencing
 			// the files we just uploaded as the inputs
 			final WorkflowInputs inputs = new WorkflowInputs();
 			inputs.setDestination(new ExistingHistory(historyId));
 			inputs.setWorkflowId(testWorkflowId);
 			inputs.setInput(getWorkflowInputId(workflowDetails, "Input Dataset"),
 					new WorkflowInput(id, InputSourceType.HDA));
-			
 
 			// run the workflow and get a handle on the outputs produced
 			final WorkflowOutputs output = client.runWorkflow(inputs);
 
-			// make sure the workflow has finished and the history is in the "ok"
+			// make sure the workflow has finished and the history is in the
+			// "ok"
 			// state before proceeding any further
 			try {
 				waitForHistory(historiesClient, output.getHistoryId());
@@ -200,24 +203,24 @@ public class WorkflowServiceImpl implements WorkflowService {
 				throw new WorkflowException("Interrupted waiting for a valid Galaxy history", e);
 			}
 
-			for (final String outputId : output.getOutputIds()) {
-				// for each output produced by the workflow....
+			// we don't care about intermediary results so just retrieve the
+			// final output from the workflow
+			String outputId = output.getOutputIds().get(output.getOutputIds().size() - 1);
 
-				// create a local file in which to store a copy of the output
-				File outputFile = new File(outputDir, outputId + ".txt");
+			// create a local file in which to store a copy of the output
+			File outputFile = new File(outputDir, outputId + ".txt");
 
-				// download this output into the local file
-				try {
-					historiesClient.downloadDataset(output.getHistoryId(), outputId, outputFile);
-				} catch (IOException e) {
-					// if we can't download the file then we have a problem....
-					throw new WorkflowException("Unable to download result from Galaxy history", e);
-				}
-
-				// as a bit of debugging print the file path and length
-				System.out.println(outputFile.getAbsolutePath() + ": " + outputFile.length());
+			// download this output into the local file
+			try {
+				historiesClient.downloadDataset(output.getHistoryId(), outputId, outputFile);
+			} catch (IOException e) {
+				// if we can't download the file then we have a problem....
+				throw new WorkflowException("Unable to download result from Galaxy history", e);
 			}
-		}		
+
+			// as a bit of debugging print the file path and length
+			System.out.println(outputFile.getAbsolutePath() + ": " + outputFile.length());
+		}
 
 		/**
 		 * return an ID that can be used to lookup the workflow later so you can
@@ -402,9 +405,9 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 			if (workflow.getName().startsWith(workflowName)) {
 				System.out.println("found workflow already in galaxy");
-				
+
 				// if this is the workflow we are after then return it's ID
-				return workflow.getId();				
+				return workflow.getId();
 			}
 		}
 
