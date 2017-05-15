@@ -51,14 +51,18 @@ public class WorkflowServiceImplTest extends TestCase {
 		System.out.println("about to execute");
 		String executionID = workflowService.execute(workflowJob);
 		
+		Status status = null;
+		
 		while (true) {
-			Status status = workflowService.getExecutionStatus(executionID).getStatus();
+			status = workflowService.getExecutionStatus(executionID).getStatus();
 			if (status.equals(Status.FINISHED) || status.equals(Status.FAILED)) {
 				break;
 			}
 
 			Thread.sleep(200L);
 		}
+		
+		assertEquals(Status.FINISHED, status);
 	}
 
 	@Test
@@ -94,14 +98,18 @@ public class WorkflowServiceImplTest extends TestCase {
 		System.out.println("about to execute");
 		String executionID = workflowService.execute(workflowJob);
 
+		Status status = null;
+		
 		while (true) {
-			Status status = workflowService.getExecutionStatus(executionID).getStatus();
+			status = workflowService.getExecutionStatus(executionID).getStatus();
 			if (status.equals(Status.FINISHED) || status.equals(Status.FAILED)) {
 				break;
 			}
 
 			Thread.sleep(200L);
 		}
+		
+		assertEquals(Status.FINISHED, status);
 	}
 
 	private static File toFile(URL url) {

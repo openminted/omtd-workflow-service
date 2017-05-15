@@ -142,7 +142,8 @@ public class WorkflowServiceImpl implements WorkflowService {
 						StoreResponse storeResponse = storeClient.downloadArchive(corpusId,
 								corpusZip.getAbsolutePath());
 					} catch (IOException e) {
-						//throw new WorkflowException("Unable to retrieve specified corpus with ID " + corpusId, e);
+						log.error("Unable to retrieve specified corpus with ID " + corpusId, e);
+						status.put(workflowExecutionId, new ExecutionStatus(Status.FAILED));
 					}
 
 					// create a new history for this run and upload the input
@@ -175,7 +176,8 @@ public class WorkflowServiceImpl implements WorkflowService {
 						waitForHistory(instance.getHistoriesClient(), historyId);
 
 					} catch (IOException | InterruptedException e) {
-						//throw new WorkflowException("Unable to upload corpus to Galaxy history", e);
+						log.error("Unable to upload corpus to Galaxy history", e);
+						status.put(workflowExecutionId, new ExecutionStatus(Status.FAILED));
 					}
 				} else {
 					try {
@@ -187,10 +189,14 @@ public class WorkflowServiceImpl implements WorkflowService {
 						}
 
 						waitForHistory(instance.getHistoriesClient(), historyId);
+						//populateDatasets(instance, historyId, inputDir.listFiles());
 					} catch (InterruptedException e) {
-						//throw new WorkflowException("Unable to upload corpus to Galaxy history", e);
+						log.error("Unable to upload corpus to Galaxy history", e);
+						status.put(workflowExecutionId, new ExecutionStatus(Status.FAILED));
 					}
 				}
+				
+				status.put(workflowExecutionId, new ExecutionStatus(Status.RUNNING));
 
 				/**
 				 * run the workflow over the corups. can this be done in one
@@ -219,7 +225,8 @@ public class WorkflowServiceImpl implements WorkflowService {
 						waitForHistory(historiesClient, output.getHistoryId());
 					} catch (InterruptedException e) {
 						// hmmmm that will mess things up
-						//throw new WorkflowException("Interrupted waiting for a valid Galaxy history", e);
+						log.error("Interrupted waiting for a valid Galaxy history", e);
+						status.put(workflowExecutionId, new ExecutionStatus(Status.FAILED));
 					}
 
 					// we don't care about intermediary results so just retrieve
@@ -237,17 +244,19 @@ public class WorkflowServiceImpl implements WorkflowService {
 					} catch (IOException e) {
 						// if we can't download the file then we have a
 						// problem....
-						//throw new WorkflowException("Unable to download result from Galaxy history", e);
+						log.error("Unable to download result from Galaxy history", e);
+						status.put(workflowExecutionId, new ExecutionStatus(Status.FAILED));
 					}
 
 					// as a bit of debugging print the file path and length
+					// TODO this should add to a corpus going into the store
 					System.out.println(outputFile.getAbsolutePath() + ": " + outputFile.length());
 				}
-				
+
 				status.put(workflowExecutionId, new ExecutionStatus(Status.FINISHED));
 			}
 		};
-		
+
 		Thread t = new Thread(runner);
 		t.start();
 
