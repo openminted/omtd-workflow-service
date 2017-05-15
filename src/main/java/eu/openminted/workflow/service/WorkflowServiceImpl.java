@@ -14,7 +14,9 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
+import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -47,6 +49,7 @@ import com.google.common.io.Resources;
 import eu.openminted.store.common.StoreResponse;
 import eu.openminted.store.restclient.StoreRESTClient;
 import eu.openminted.workflow.api.ExecutionStatus;
+import eu.openminted.workflow.api.ExecutionStatus.Status;
 import eu.openminted.workflow.api.WorkflowException;
 import eu.openminted.workflow.api.WorkflowJob;
 import eu.openminted.workflow.api.WorkflowService;
@@ -54,6 +57,10 @@ import eu.openminted.workflow.api.WorkflowService;
 @RestController
 @EnableAutoConfiguration
 public class WorkflowServiceImpl implements WorkflowService {
+
+	private static Logger log = Logger.getLogger(WorkflowServiceImpl.class);
+
+	private static Map<String, ExecutionStatus> status = new HashMap<String, ExecutionStatus>();
 
 	// these should probably both be set via injection
 	@Value("${galaxy.url}")
@@ -78,156 +85,178 @@ public class WorkflowServiceImpl implements WorkflowService {
 	@Override
 	public String execute(WorkflowJob workflowJob) throws WorkflowException {
 
-		System.out.println("\n\n*************In execute: " + galaxyInstanceUrl);
+		final String workflowExecutionId = UUID.randomUUID().toString();
+		status.put(workflowExecutionId, new ExecutionStatus(Status.PENDING));
 
-		// get a handle on the Galaxy instance we want to talk to
-		GalaxyInstance instance = GalaxyInstanceFactory.get(galaxyInstanceUrl, galaxyApiKey);
+		log.debug("Starting workflow execution " + workflowExecutionId + " using Galaxy instance at "
+				+ galaxyInstanceUrl);
 
-		System.out.println(instance);
+		Runnable runner = new Runnable() {
 
-		StoreRESTClient storeClient = null; // new
-											// StoreRESTClient(storeEndpoint);
+			public void run() {
+				// get a handle on the Galaxy instance we want to talk to
+				GalaxyInstance instance = GalaxyInstanceFactory.get(galaxyInstanceUrl, galaxyApiKey);
 
-		/**
-		 * get workflow from job, it's a Component instance so will then need to
-		 * get it out of there. question is what does that object contain and
-		 * where is the workflow file actually stored?
-		 **/
+				StoreRESTClient storeClient = new StoreRESTClient(storeEndpoint);
 
-		// get clients for access to the workflows and histories
-		WorkflowsClient client = instance.getWorkflowsClient();
+				/**
+				 * get workflow from job, it's a Component instance so will then
+				 * need to get it out of there. question is what does that
+				 * object contain and where is the workflow file actually
+				 * stored?
+				 **/
 
-		// This can't possible be sane, surely? :(
-		String workflowID = workflowJob.getWorkflow().getComponentInfo().getIdentificationInfo().getIdentifiers().get(0)
-				.getValue();
+				// get clients for access to the workflows and histories
+				WorkflowsClient client = instance.getWorkflowsClient();
 
-		// make sure we have the workflow we want to run and get it's details
-		final String testWorkflowId = ensureHasWorkflow(client, workflowID);
+				// This can't possible be sane, surely? :(
+				String workflowID = workflowJob.getWorkflow().getComponentInfo().getIdentificationInfo()
+						.getIdentifiers().get(0).getValue();
 
-		System.out.println("Workflow ID: " + testWorkflowId);
+				// make sure we have the workflow we want to run and get it's
+				// details
+				final String testWorkflowId = ensureHasWorkflow(client, workflowID);
 
-		final WorkflowDetails workflowDetails = client.showWorkflow(testWorkflowId);
+				System.out.println("Workflow ID: " + testWorkflowId);
 
-		/**
-		 * download the corpus from the OMTD-STORE using the REST client. This
-		 * should get us a folder but not sure the format of the contents has
-		 * been fixed yet
-		 **/
+				final WorkflowDetails workflowDetails = client.showWorkflow(testWorkflowId);
 
-		final File outputDir = new File("output");
-		HistoriesClient historiesClient = instance.getHistoriesClient();
+				/**
+				 * download the corpus from the OMTD-STORE using the REST
+				 * client. This should get us a folder but not sure the format
+				 * of the contents has been fixed yet
+				 **/
 
-		String corpusId = workflowJob.getCorpusId();
+				final File outputDir = new File("output");
+				HistoriesClient historiesClient = instance.getHistoriesClient();
 
-		final String historyId = createHistory(instance, "OpenMinTeD Registry Integration: " + (new Date()));
-		final List<String> ids = new ArrayList<String>();
+				String corpusId = workflowJob.getCorpusId();
 
-		if (false) {
-			File corpusZip;
-			try {
-				corpusZip = File.createTempFile("corpus", ".zip");
-				StoreResponse storeResponse = storeClient.downloadArchive(corpusId, corpusZip.getAbsolutePath());
-			} catch (IOException e) {
-				throw new WorkflowException("Unable to retrieve specified corpus with ID " + corpusId, e);
-			}
+				final String historyId = createHistory(instance, "OpenMinTeD Registry Integration: " + (new Date()));
+				final List<String> ids = new ArrayList<String>();
 
-			// create a new history for this run and upload the input files to
-			// it
-
-			try (FileSystem zipFs = FileSystems.newFileSystem(corpusZip.toURI(), new HashMap<>());) {
-
-				Path pathInZip = zipFs.getPath("/resources");
-
-				Files.walkFileTree(pathInZip, new SimpleFileVisitor<Path>() {
-					@Override
-					public FileVisitResult visitFile(Path filePath, BasicFileAttributes attrs) throws IOException {
-
-						// this will fail as the filePath is inside a zip
-						// will probably have to copy to a temp file before
-						// uploading, sigh :(
-						OutputDataset dataset = upload(instance, historyId, filePath.toFile());
-
-						// and the ID to the list
-						ids.add(dataset.getId());
-
-						return FileVisitResult.CONTINUE;
+				if (false) {
+					File corpusZip;
+					try {
+						corpusZip = File.createTempFile("corpus", ".zip");
+						StoreResponse storeResponse = storeClient.downloadArchive(corpusId,
+								corpusZip.getAbsolutePath());
+					} catch (IOException e) {
+						//throw new WorkflowException("Unable to retrieve specified corpus with ID " + corpusId, e);
 					}
-				});
 
-				waitForHistory(instance.getHistoriesClient(), historyId);
+					// create a new history for this run and upload the input
+					// files to
+					// it
 
-			} catch (IOException | InterruptedException e) {
-				throw new WorkflowException("Unable to upload corpus to Galaxy history", e);
-			}
-		} else {
-			try {
-				final File inputDir = new File(corpusId);
+					try (FileSystem zipFs = FileSystems.newFileSystem(corpusZip.toURI(), new HashMap<>());) {
 
-				for (File f : inputDir.listFiles()) {
-					OutputDataset dataset = upload(instance, historyId, f);
-					ids.add(dataset.getId());
+						Path pathInZip = zipFs.getPath("/resources");
+
+						Files.walkFileTree(pathInZip, new SimpleFileVisitor<Path>() {
+							@Override
+							public FileVisitResult visitFile(Path filePath, BasicFileAttributes attrs)
+									throws IOException {
+
+								// this will fail as the filePath is inside a
+								// zip
+								// will probably have to copy to a temp file
+								// before
+								// uploading, sigh :(
+								OutputDataset dataset = upload(instance, historyId, filePath.toFile());
+
+								// and the ID to the list
+								ids.add(dataset.getId());
+
+								return FileVisitResult.CONTINUE;
+							}
+						});
+
+						waitForHistory(instance.getHistoriesClient(), historyId);
+
+					} catch (IOException | InterruptedException e) {
+						//throw new WorkflowException("Unable to upload corpus to Galaxy history", e);
+					}
+				} else {
+					try {
+						final File inputDir = new File(corpusId);
+
+						for (File f : inputDir.listFiles()) {
+							OutputDataset dataset = upload(instance, historyId, f);
+							ids.add(dataset.getId());
+						}
+
+						waitForHistory(instance.getHistoriesClient(), historyId);
+					} catch (InterruptedException e) {
+						//throw new WorkflowException("Unable to upload corpus to Galaxy history", e);
+					}
 				}
 
-				waitForHistory(instance.getHistoriesClient(), historyId);
-			} catch (InterruptedException e) {
-				throw new WorkflowException("Unable to upload corpus to Galaxy history", e);
+				/**
+				 * run the workflow over the corups. can this be done in one
+				 * shot or do we need to send each document in turn. Might
+				 * depend on how the workflow is written?
+				 **/
+
+				for (String id : ids) {
+					// create a new workflow input in the correct history and
+					// referencing
+					// the files we just uploaded as the inputs
+					final WorkflowInputs inputs = new WorkflowInputs();
+					inputs.setDestination(new ExistingHistory(historyId));
+					inputs.setWorkflowId(testWorkflowId);
+					inputs.setInput(getWorkflowInputId(workflowDetails, "Input Dataset"),
+							new WorkflowInput(id, InputSourceType.HDA));
+
+					// run the workflow and get a handle on the outputs produced
+					final WorkflowOutputs output = client.runWorkflow(inputs);
+
+					// make sure the workflow has finished and the history is in
+					// the
+					// "ok"
+					// state before proceeding any further
+					try {
+						waitForHistory(historiesClient, output.getHistoryId());
+					} catch (InterruptedException e) {
+						// hmmmm that will mess things up
+						//throw new WorkflowException("Interrupted waiting for a valid Galaxy history", e);
+					}
+
+					// we don't care about intermediary results so just retrieve
+					// the
+					// final output from the workflow
+					String outputId = output.getOutputIds().get(output.getOutputIds().size() - 1);
+
+					// create a local file in which to store a copy of the
+					// output
+					File outputFile = new File(outputDir, outputId + ".txt");
+
+					// download this output into the local file
+					try {
+						historiesClient.downloadDataset(output.getHistoryId(), outputId, outputFile);
+					} catch (IOException e) {
+						// if we can't download the file then we have a
+						// problem....
+						//throw new WorkflowException("Unable to download result from Galaxy history", e);
+					}
+
+					// as a bit of debugging print the file path and length
+					System.out.println(outputFile.getAbsolutePath() + ": " + outputFile.length());
+				}
+				
+				status.put(workflowExecutionId, new ExecutionStatus(Status.FINISHED));
 			}
-		}
-
-		/**
-		 * run the workflow over the corups. can this be done in one shot or do
-		 * we need to send each document in turn. Might depend on how the
-		 * workflow is written?
-		 **/
-
-		for (String id : ids) {
-			// create a new workflow input in the correct history and
-			// referencing
-			// the files we just uploaded as the inputs
-			final WorkflowInputs inputs = new WorkflowInputs();
-			inputs.setDestination(new ExistingHistory(historyId));
-			inputs.setWorkflowId(testWorkflowId);
-			inputs.setInput(getWorkflowInputId(workflowDetails, "Input Dataset"),
-					new WorkflowInput(id, InputSourceType.HDA));
-
-			// run the workflow and get a handle on the outputs produced
-			final WorkflowOutputs output = client.runWorkflow(inputs);
-
-			// make sure the workflow has finished and the history is in the
-			// "ok"
-			// state before proceeding any further
-			try {
-				waitForHistory(historiesClient, output.getHistoryId());
-			} catch (InterruptedException e) {
-				// hmmmm that will mess things up
-				throw new WorkflowException("Interrupted waiting for a valid Galaxy history", e);
-			}
-
-			// we don't care about intermediary results so just retrieve the
-			// final output from the workflow
-			String outputId = output.getOutputIds().get(output.getOutputIds().size() - 1);
-
-			// create a local file in which to store a copy of the output
-			File outputFile = new File(outputDir, outputId + ".txt");
-
-			// download this output into the local file
-			try {
-				historiesClient.downloadDataset(output.getHistoryId(), outputId, outputFile);
-			} catch (IOException e) {
-				// if we can't download the file then we have a problem....
-				throw new WorkflowException("Unable to download result from Galaxy history", e);
-			}
-
-			// as a bit of debugging print the file path and length
-			System.out.println(outputFile.getAbsolutePath() + ": " + outputFile.length());
-		}
+		};
+		
+		Thread t = new Thread(runner);
+		t.start();
 
 		/**
 		 * return an ID that can be used to lookup the workflow later so you can
 		 * get the status. this probably means spawning a thread for the actual
 		 * execution so we can monitor the status of the Galaxy job as it runs
 		 **/
-		return null;
+		return workflowExecutionId.toString();
 	}
 
 	@Override
@@ -247,11 +276,10 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 	@Override
 	public ExecutionStatus getExecutionStatus(String workflowExecutionId) throws WorkflowException {
-		// assuming execution has started this should be a case of polling
-		// galaxy as in the existing
-		// demo code, to figure out where it's at, we just then need to wrap
-		// that as an ExecutionStatus
-		return null;
+		if (!status.containsKey(workflowExecutionId))
+			throw new WorkflowException("Unknown Workflow Execution ID");
+
+		return status.get(workflowExecutionId);
 	}
 
 	/**
