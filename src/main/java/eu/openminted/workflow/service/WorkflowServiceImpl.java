@@ -147,8 +147,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					}
 
 					// create a new history for this run and upload the input
-					// files to
-					// it
+					// files to it
 
 					try (FileSystem zipFs = FileSystems.newFileSystem(corpusZip.toURI(), new HashMap<>());) {
 
@@ -160,10 +159,8 @@ public class WorkflowServiceImpl implements WorkflowService {
 									throws IOException {
 
 								// this will fail as the filePath is inside a
-								// zip
-								// will probably have to copy to a temp file
-								// before
-								// uploading, sigh :(
+								// zip will probably have to copy to a temp file
+								// before uploading, sigh :(
 								OutputDataset dataset = upload(instance, historyId, filePath.toFile());
 
 								// and the ID to the list
@@ -189,13 +186,13 @@ public class WorkflowServiceImpl implements WorkflowService {
 						}
 
 						waitForHistory(instance.getHistoriesClient(), historyId);
-						//populateDatasets(instance, historyId, inputDir.listFiles());
+
 					} catch (InterruptedException e) {
 						log.error("Unable to upload corpus to Galaxy history", e);
 						status.put(workflowExecutionId, new ExecutionStatus(Status.FAILED));
 					}
 				}
-				
+
 				status.put(workflowExecutionId, new ExecutionStatus(Status.RUNNING));
 
 				/**
@@ -218,9 +215,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					final WorkflowOutputs output = client.runWorkflow(inputs);
 
 					// make sure the workflow has finished and the history is in
-					// the
-					// "ok"
-					// state before proceeding any further
+					// the "ok" state before proceeding any further
 					try {
 						waitForHistory(historiesClient, output.getHistoryId());
 					} catch (InterruptedException e) {
@@ -230,8 +225,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					}
 
 					// we don't care about intermediary results so just retrieve
-					// the
-					// final output from the workflow
+					// the final output from the workflow
 					String outputId = output.getOutputIds().get(output.getOutputIds().size() - 1);
 
 					// create a local file in which to store a copy of the
