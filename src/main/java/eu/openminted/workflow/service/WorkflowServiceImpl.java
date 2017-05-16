@@ -144,6 +144,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					} catch (IOException e) {
 						log.error("Unable to retrieve specified corpus with ID " + corpusId, e);
 						status.put(workflowExecutionId, new ExecutionStatus(Status.FAILED));
+						return;
 					}
 
 					// create a new history for this run and upload the input
@@ -175,6 +176,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					} catch (IOException | InterruptedException e) {
 						log.error("Unable to upload corpus to Galaxy history", e);
 						status.put(workflowExecutionId, new ExecutionStatus(Status.FAILED));
+						return;
 					}
 				} else {
 					try {
@@ -190,6 +192,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					} catch (InterruptedException e) {
 						log.error("Unable to upload corpus to Galaxy history", e);
 						status.put(workflowExecutionId, new ExecutionStatus(Status.FAILED));
+						return;
 					}
 				}
 
@@ -203,8 +206,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 				for (String id : ids) {
 					// create a new workflow input in the correct history and
-					// referencing
-					// the files we just uploaded as the inputs
+					// referencing the files we just uploaded as the inputs
 					final WorkflowInputs inputs = new WorkflowInputs();
 					inputs.setDestination(new ExistingHistory(historyId));
 					inputs.setWorkflowId(testWorkflowId);
@@ -222,6 +224,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 						// hmmmm that will mess things up
 						log.error("Interrupted waiting for a valid Galaxy history", e);
 						status.put(workflowExecutionId, new ExecutionStatus(Status.FAILED));
+						return;
 					}
 
 					// we don't care about intermediary results so just retrieve
@@ -240,6 +243,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 						// problem....
 						log.error("Unable to download result from Galaxy history", e);
 						status.put(workflowExecutionId, new ExecutionStatus(Status.FAILED));
+						return;
 					}
 
 					// as a bit of debugging print the file path and length
