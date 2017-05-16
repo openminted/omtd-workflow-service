@@ -205,6 +205,11 @@ public class WorkflowServiceImpl implements WorkflowService {
 				 **/
 
 				for (String id : ids) {
+
+					if (!shouldContinue(workflowExecutionId)) {
+						log.debug("Workfloe execution " + workflowExecutionId + " stopped early");
+					}
+
 					// create a new workflow input in the correct history and
 					// referencing the files we just uploaded as the inputs
 					final WorkflowInputs inputs = new WorkflowInputs();
@@ -266,19 +271,46 @@ public class WorkflowServiceImpl implements WorkflowService {
 		return workflowExecutionId.toString();
 	}
 
+	private boolean shouldContinue(String workflowExecutionId) {
+		Status executionStatus = status.get(workflowExecutionId).getStatus();
+
+		if (executionStatus == null)
+			return true;
+
+		while (executionStatus.equals(Status.PAUSED)) {
+			try {
+				Thread.sleep(200L);
+				executionStatus = status.get(workflowExecutionId).getStatus();
+			} catch (InterruptedException e) {
+				log.error("something went wrong while wating for a paused workflow to be resumed");
+				return false;
+			}
+		}
+
+		return executionStatus.equals(Status.PENDING) || executionStatus.equals(Status.RUNNING);
+	}
+
 	@Override
 	public void cancel(String workflowExecutionId) throws WorkflowException {
-
+		if (!status.containsKey(workflowExecutionId)) return;
+		
+		status.put(workflowExecutionId, new ExecutionStatus(Status.CANCELED));
 	}
 
 	@Override
 	public void pause(String workflowExecutionId) throws WorkflowException {
-
+		if (!status.containsKey(workflowExecutionId)) return;
+		
+		status.put(workflowExecutionId, new ExecutionStatus(Status.PAUSED));
 	}
 
 	@Override
 	public void resume(String workflowExecutionId) throws WorkflowException {
-
+		if (!status.containsKey(workflowExecutionId)) return;
+		
+		if (!status.get(workflowExecutionId).getStatus().equals(Status.PAUSED)) return;
+		
+		status.put(workflowExecutionId, new ExecutionStatus(Status.RUNNING));
 	}
 
 	@Override
