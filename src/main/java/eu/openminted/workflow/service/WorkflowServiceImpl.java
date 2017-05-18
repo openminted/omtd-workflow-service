@@ -3,6 +3,7 @@ package eu.openminted.workflow.service;
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.FileSystem;
@@ -12,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Date;
 import java.util.HashMap;
@@ -75,7 +77,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 	String galaxyApiKey;
 
 	@Value("${store.endpoint}")
-	private String storeEndpoint;
+	String storeEndpoint;
 
 	@RequestMapping("/")
 	String home() {
@@ -153,10 +155,14 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 					// create a new history for this run and upload the input
 					// files to it
+					System.out.println(corpusZip.getAbsolutePath());
+					System.out.println(corpusId);
 
-					try (FileSystem zipFs = FileSystems.newFileSystem(corpusZip.toURI(), new HashMap<>());) {
+					System.out.println(corpusZip.toURI());
+					
+					try (FileSystem zipFs = FileSystems.newFileSystem(new URI("jar:"+corpusZip.getAbsoluteFile().toURI()), new HashMap<>());) {
 
-						Path pathInZip = zipFs.getPath("/documents");
+						Path pathInZip = zipFs.getPath("/"+corpusId,"documents");
 
 						Files.walkFileTree(pathInZip, new SimpleFileVisitor<Path>() {
 							@Override
@@ -169,7 +175,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 								try {
 									tmpFile = Files.createTempFile("omtd-galaxy-", "-upload");
-									tmpFile = Files.copy(filePath, tmpFile);
+									tmpFile = Files.copy(filePath, tmpFile, StandardCopyOption.REPLACE_EXISTING);
 
 									OutputDataset dataset = upload(instance, historyId, tmpFile.toFile());
 
@@ -188,11 +194,11 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 						waitForHistory(instance.getHistoriesClient(), historyId);
 
-					} catch (IOException | InterruptedException e) {
+					} catch (IOException | InterruptedException | URISyntaxException e) {
 						log.error("Unable to upload corpus to Galaxy history", e);
 						status.put(workflowExecutionId, new ExecutionStatus(Status.FAILED));
 						return;
-					}
+					} 
 				} else {
 					try {
 						final File inputDir = toFile(new URL(corpusId));
@@ -220,16 +226,9 @@ public class WorkflowServiceImpl implements WorkflowService {
 				 **/
 
 				Path outputDir = null;
-				File annotationsDir = null;
-
+				
 				try {
 					outputDir = Files.createTempDirectory("omtd-workflow-output-");
-					annotationsDir = new File(outputDir.toFile(), "annotations");
-					if (!annotationsDir.mkdirs()) {
-						log.error("Unable to create annotations output dir");
-						status.put(workflowExecutionId, new ExecutionStatus(Status.FAILED));
-						return;
-					}
 				} catch (IOException e) {
 					log.error("Unable to create annotations output dir", e);
 					status.put(workflowExecutionId, new ExecutionStatus(Status.FAILED));
@@ -272,7 +271,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 					// create a local file in which to store a copy of the
 					// output
-					File outputFile = new File(annotationsDir, entry.getValue());
+					File outputFile = new File(outputDir.toFile(), entry.getValue());
 
 					// download this output into the local file
 					try {
@@ -297,15 +296,17 @@ public class WorkflowServiceImpl implements WorkflowService {
 						Path corpusZip = Paths.get(corpusDir.getName()+".zip");
 						System.out.println(corpusDir.getName()+"\t"+corpusZip);						
 						pack(outputDir, corpusZip);
+						status.put(workflowExecutionId, new ExecutionStatus(Status.FINISHED));
 					}
 					else {
-						uploadArchive(storeClient,outputDir,workflowExecutionId);
+						String archiveID = uploadArchive(storeClient,outputDir);
+						status.put(workflowExecutionId, new ExecutionStatus(Status.FINISHED));
 					}
 				} catch (IOException e) {
-					e.printStackTrace();
-				}
-
-				status.put(workflowExecutionId, new ExecutionStatus(Status.FINISHED));
+					log.error("unable to store workflow results", e);
+					status.put(workflowExecutionId, new ExecutionStatus(Status.FAILED));
+					return;
+				}				
 			}
 		};
 
@@ -612,8 +613,8 @@ public class WorkflowServiceImpl implements WorkflowService {
 		}
 	}
 	
-	private static void uploadArchive(StoreRESTClient storeClient, Path archiveData, String archiveID) throws IOException {
-		storeClient.createArchive(archiveID);
+	private static String uploadArchive(StoreRESTClient storeClient, Path archiveData) throws IOException {
+		String archiveID = storeClient.createArchive().getResponse();
 		String annotationsFolderId = storeClient.createSubArchive(archiveID, "annotations").getResponse();
 		
 		Files.walk(archiveData).filter(path -> !Files.isDirectory(path)).forEach(path -> {			
@@ -621,5 +622,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 		});
 		
 		storeClient.finalizeArchive(archiveID);
+		
+		return archiveID;
 	}
 }
