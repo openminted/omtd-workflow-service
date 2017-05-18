@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.nio.file.CopyOption;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
@@ -293,18 +292,15 @@ public class WorkflowServiceImpl implements WorkflowService {
 				}
 
 				try {
-					Path outputZipFile = Files.createTempFile("omtd-workflow-output-", ".zip");
-					pack(outputDir, outputZipFile);
-
-					System.out.println(corpusId);
+					
 					if (corpusId.startsWith("file:")) {
 						File corpusDir = toFile(new URL(corpusId));			
 						Path corpusZip = Paths.get(corpusDir.getName()+".zip");
 						System.out.println(corpusDir.getName()+"\t"+corpusZip);						
-						Files.copy(outputZipFile,corpusZip,StandardCopyOption.REPLACE_EXISTING);
+						pack(outputDir, corpusZip);
 					}
 					else {
-						
+						uploadArchive(storeClient,outputDir,workflowExecutionId);
 					}
 				} catch (IOException e) {
 					e.printStackTrace();
@@ -615,5 +611,16 @@ public class WorkflowServiceImpl implements WorkflowService {
 				}
 			});
 		}
+	}
+	
+	private static void uploadArchive(StoreRESTClient storeClient, Path archiveData, String archiveID) throws IOException {
+		storeClient.createArchive(archiveID);
+		String annotationsFolderId = storeClient.createSubArchive(archiveID, "annotations").getResponse();
+		
+		Files.walk(archiveData).filter(path -> !Files.isDirectory(path)).forEach(path -> {			
+			storeClient.storeFile(path.toFile(), annotationsFolderId, path.getFileName().toString());
+		});
+		
+		storeClient.finalizeArchive(archiveID);
 	}
 }
