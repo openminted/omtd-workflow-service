@@ -155,22 +155,34 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 					try (FileSystem zipFs = FileSystems.newFileSystem(corpusZip.toURI(), new HashMap<>());) {
 
-						Path pathInZip = zipFs.getPath("/resources");
+						Path pathInZip = zipFs.getPath("/corpus");
 
 						Files.walkFileTree(pathInZip, new SimpleFileVisitor<Path>() {
 							@Override
 							public FileVisitResult visitFile(Path filePath, BasicFileAttributes attrs)
 									throws IOException {
 
-								// this will fail as the filePath is inside a
-								// zip will probably have to copy to a temp file
-								// before uploading, sigh :(
-								OutputDataset dataset = upload(instance, historyId, filePath.toFile());
+								// create a tmp file to hold the file from the
+								// zip while we upload it to Galaxy
+								Path tmpFile = null;
 
-								// and the ID to the list
-								ids.add(dataset.getId());
+								try {
+									tmpFile = Files.createTempFile("omtd-galaxy-", "-upload");
+									tmpFile = Files.copy(filePath, tmpFile);
+									
+									OutputDataset dataset = upload(instance, historyId,
+											tmpFile.toFile());
 
-								return FileVisitResult.CONTINUE;
+									// and the ID to the list
+									ids.add(dataset.getId());
+
+									return FileVisitResult.CONTINUE;
+
+								} finally {
+									if (tmpFile != null)
+										Files.delete(tmpFile);
+								}
+
 							}
 						});
 
@@ -210,7 +222,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 				for (String id : ids) {
 
 					if (!shouldContinue(workflowExecutionId)) {
-						log.debug("Workfloe execution " + workflowExecutionId + " stopped early");
+						log.debug("Workflow execution " + workflowExecutionId + " stopped early");
 					}
 
 					// create a new workflow input in the correct history and
@@ -295,24 +307,28 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 	@Override
 	public void cancel(String workflowExecutionId) throws WorkflowException {
-		if (!status.containsKey(workflowExecutionId)) return;
-		
+		if (!status.containsKey(workflowExecutionId))
+			return;
+
 		status.put(workflowExecutionId, new ExecutionStatus(Status.CANCELED));
 	}
 
 	@Override
 	public void pause(String workflowExecutionId) throws WorkflowException {
-		if (!status.containsKey(workflowExecutionId)) return;
-		
+		if (!status.containsKey(workflowExecutionId))
+			return;
+
 		status.put(workflowExecutionId, new ExecutionStatus(Status.PAUSED));
 	}
 
 	@Override
 	public void resume(String workflowExecutionId) throws WorkflowException {
-		if (!status.containsKey(workflowExecutionId)) return;
-		
-		if (!status.get(workflowExecutionId).getStatus().equals(Status.PAUSED)) return;
-		
+		if (!status.containsKey(workflowExecutionId))
+			return;
+
+		if (!status.get(workflowExecutionId).getStatus().equals(Status.PAUSED))
+			return;
+
 		status.put(workflowExecutionId, new ExecutionStatus(Status.RUNNING));
 	}
 
@@ -536,7 +552,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 		// return the ID or null if we didn't find it
 		return workflowInputId;
 	}
-	
+
 	private static File toFile(URL url) {
 		try {
 			return new File(url.toURI());
