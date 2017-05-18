@@ -106,22 +106,10 @@ public class WorkflowServiceImplTest extends TestCase {
 		WorkflowJob workflowJob = new WorkflowJob();
 		workflowJob.setWorkflow(workflow);
 
-		File folder = toFile(this.getClass().getResource(corpusID));
-
-		//System.out.println(folder.getAbsolutePath());
-
-		workflowJob.setCorpusId(folder.getAbsolutePath());
+		workflowJob.setCorpusId(this.getClass().getResource(corpusID).toString());
 
 		//System.out.println("about to execute");
 		return workflowService.execute(workflowJob);
 
-	}
-
-	private static File toFile(URL url) {
-		try {
-			return new File(url.toURI());
-		} catch (URISyntaxException e) {
-			return new File(url.getPath());
-		}
 	}
 }

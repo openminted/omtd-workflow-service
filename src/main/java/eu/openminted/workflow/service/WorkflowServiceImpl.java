@@ -2,6 +2,9 @@ package eu.openminted.workflow.service;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
@@ -135,7 +138,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 				final String historyId = createHistory(instance, "OpenMinTeD Registry Integration: " + (new Date()));
 				final List<String> ids = new ArrayList<String>();
 
-				if (false) {
+				if (!corpusId.startsWith("file:")) {
 					File corpusZip;
 					try {
 						corpusZip = File.createTempFile("corpus", ".zip");
@@ -180,7 +183,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					}
 				} else {
 					try {
-						final File inputDir = new File(corpusId);
+						final File inputDir = toFile(new URL(corpusId));
 
 						for (File f : inputDir.listFiles()) {
 							OutputDataset dataset = upload(instance, historyId, f);
@@ -189,7 +192,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 						waitForHistory(instance.getHistoriesClient(), historyId);
 
-					} catch (InterruptedException e) {
+					} catch (InterruptedException | MalformedURLException e) {
 						log.error("Unable to upload corpus to Galaxy history", e);
 						status.put(workflowExecutionId, new ExecutionStatus(Status.FAILED));
 						return;
@@ -532,5 +535,13 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 		// return the ID or null if we didn't find it
 		return workflowInputId;
+	}
+	
+	private static File toFile(URL url) {
+		try {
+			return new File(url.toURI());
+		} catch (URISyntaxException e) {
+			return new File(url.getPath());
+		}
 	}
 }
