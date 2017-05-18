@@ -5,19 +5,23 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.file.CopyOption;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
@@ -130,13 +134,12 @@ public class WorkflowServiceImpl implements WorkflowService {
 				 * of the contents has been fixed yet
 				 **/
 
-				final File outputDir = new File("output");
 				HistoriesClient historiesClient = instance.getHistoriesClient();
 
 				String corpusId = workflowJob.getCorpusId();
 
 				final String historyId = createHistory(instance, "OpenMinTeD Registry Integration: " + (new Date()));
-				final List<String> ids = new ArrayList<String>();
+				final Map<String, String> ids = new HashMap<String, String>();
 
 				if (!corpusId.startsWith("file:")) {
 					File corpusZip;
@@ -155,7 +158,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 					try (FileSystem zipFs = FileSystems.newFileSystem(corpusZip.toURI(), new HashMap<>());) {
 
-						Path pathInZip = zipFs.getPath("/corpus");
+						Path pathInZip = zipFs.getPath("/documents");
 
 						Files.walkFileTree(pathInZip, new SimpleFileVisitor<Path>() {
 							@Override
@@ -169,12 +172,11 @@ public class WorkflowServiceImpl implements WorkflowService {
 								try {
 									tmpFile = Files.createTempFile("omtd-galaxy-", "-upload");
 									tmpFile = Files.copy(filePath, tmpFile);
-									
-									OutputDataset dataset = upload(instance, historyId,
-											tmpFile.toFile());
+
+									OutputDataset dataset = upload(instance, historyId, tmpFile.toFile());
 
 									// and the ID to the list
-									ids.add(dataset.getId());
+									ids.put(dataset.getId(), filePath.getFileName().toString());
 
 									return FileVisitResult.CONTINUE;
 
@@ -199,7 +201,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 						for (File f : inputDir.listFiles()) {
 							OutputDataset dataset = upload(instance, historyId, f);
-							ids.add(dataset.getId());
+							ids.put(dataset.getId(), f.getName());
 						}
 
 						waitForHistory(instance.getHistoriesClient(), historyId);
@@ -219,7 +221,26 @@ public class WorkflowServiceImpl implements WorkflowService {
 				 * depend on how the workflow is written?
 				 **/
 
-				for (String id : ids) {
+				Path outputDir = null;
+				File annotationsDir = null;
+
+				try {
+					outputDir = Files.createTempDirectory("omtd-workflow-output-");
+					annotationsDir = new File(outputDir.toFile(), "annotations");
+					if (!annotationsDir.mkdirs()) {
+						log.error("Unable to create annotations output dir");
+						status.put(workflowExecutionId, new ExecutionStatus(Status.FAILED));
+						return;
+					}
+				} catch (IOException e) {
+					log.error("Unable to create annotations output dir", e);
+					status.put(workflowExecutionId, new ExecutionStatus(Status.FAILED));
+					return;
+				}
+
+				for (Map.Entry<String, String> entry : ids.entrySet()) {
+
+					String id = entry.getKey();
 
 					if (!shouldContinue(workflowExecutionId)) {
 						log.debug("Workflow execution " + workflowExecutionId + " stopped early");
@@ -253,7 +274,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 					// create a local file in which to store a copy of the
 					// output
-					File outputFile = new File(outputDir, outputId + ".txt");
+					File outputFile = new File(annotationsDir, entry.getValue());
 
 					// download this output into the local file
 					try {
@@ -269,6 +290,24 @@ public class WorkflowServiceImpl implements WorkflowService {
 					// as a bit of debugging print the file path and length
 					// TODO this should add to a corpus going into the store
 					System.out.println(outputFile.getAbsolutePath() + ": " + outputFile.length());
+				}
+
+				try {
+					Path outputZipFile = Files.createTempFile("omtd-workflow-output-", ".zip");
+					pack(outputDir, outputZipFile);
+
+					System.out.println(corpusId);
+					if (corpusId.startsWith("file:")) {
+						File corpusDir = toFile(new URL(corpusId));			
+						Path corpusZip = Paths.get(corpusDir.getName()+".zip");
+						System.out.println(corpusDir.getName()+"\t"+corpusZip);						
+						Files.copy(outputZipFile,corpusZip,StandardCopyOption.REPLACE_EXISTING);
+					}
+					else {
+						
+					}
+				} catch (IOException e) {
+					e.printStackTrace();
 				}
 
 				status.put(workflowExecutionId, new ExecutionStatus(Status.FINISHED));
@@ -558,6 +597,23 @@ public class WorkflowServiceImpl implements WorkflowService {
 			return new File(url.toURI());
 		} catch (URISyntaxException e) {
 			return new File(url.getPath());
+		}
+	}
+
+	private static void pack(Path sourceDir, Path zipFile) throws IOException {
+
+		try (ZipOutputStream zs = new ZipOutputStream(Files.newOutputStream(zipFile))) {
+
+			Files.walk(sourceDir).filter(path -> !Files.isDirectory(path)).forEach(path -> {
+				ZipEntry zipEntry = new ZipEntry(sourceDir.relativize(path).toString());
+				try {
+					zs.putNextEntry(zipEntry);
+					zs.write(Files.readAllBytes(path));
+					zs.closeEntry();
+				} catch (Exception e) {
+					System.err.println(e);
+				}
+			});
 		}
 	}
 }
