@@ -72,6 +72,31 @@ public class WorkflowServiceImplTest extends TestCase {
 		assertNotNull(status.getCorpusID());
 		assertNull(status.getFailureCause());
 	}
+	
+	@Test
+	public void testMissingWorkflow() throws WorkflowException, InterruptedException {
+		WorkflowServiceImpl workflowService = new WorkflowServiceImpl();
+		workflowService.galaxyInstanceUrl = "http://localhost:8899";
+		workflowService.galaxyApiKey = "4454f8849b3d30e1a6551727f871dbd7";
+
+		String executionID = startWorkflow(workflowService, "MissingWorkflow", "/input/SingleDocument/");
+
+		ExecutionStatus status = null;
+
+		while (true) {
+			status = workflowService.getExecutionStatus(executionID);
+			if (status.getStatus().equals(Status.FINISHED) || status.getStatus().equals(Status.FAILED)
+					|| status.getStatus().equals(Status.CANCELED)) {
+				break;
+			}
+
+			Thread.sleep(200L);
+		}
+
+		assertEquals(Status.FAILED, status.getStatus());
+		assertNull(status.getCorpusID());
+		assertNotNull(status.getFailureCause());
+	}
 
 	@Test
 	public void testCancelWorkflow() throws WorkflowException, InterruptedException {

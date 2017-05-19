@@ -101,10 +101,11 @@ public class WorkflowServiceImpl implements WorkflowService {
 		Runnable runner = new Runnable() {
 
 			public void run() {
-				if (!shouldContinue(workflowExecutionId)) return;
-				
+				if (!shouldContinue(workflowExecutionId))
+					return;
+
 				status.put(workflowExecutionId, new ExecutionStatus(Status.RUNNING));
-				
+
 				// get a handle on the Galaxy instance we want to talk to
 				GalaxyInstance instance = GalaxyInstanceFactory.get(galaxyInstanceUrl, galaxyApiKey);
 
@@ -127,6 +128,13 @@ public class WorkflowServiceImpl implements WorkflowService {
 				// make sure we have the workflow we want to run and get it's
 				// details
 				final String testWorkflowId = ensureHasWorkflow(client, workflowID);
+
+				if (testWorkflowId == null) {
+					log.error("Unable to locate workflow: " + workflowID);
+					status.put(workflowExecutionId,
+							new ExecutionStatus(new WorkflowException("Unable to locate named workflow")));
+					return;
+				}
 
 				System.out.println("Workflow ID: " + testWorkflowId);
 
@@ -163,10 +171,11 @@ public class WorkflowServiceImpl implements WorkflowService {
 					System.out.println(corpusId);
 
 					System.out.println(corpusZip.toURI());
-					
-					try (FileSystem zipFs = FileSystems.newFileSystem(new URI("jar:"+corpusZip.getAbsoluteFile().toURI()), new HashMap<>());) {
 
-						Path pathInZip = zipFs.getPath("/"+corpusId,"documents");
+					try (FileSystem zipFs = FileSystems
+							.newFileSystem(new URI("jar:" + corpusZip.getAbsoluteFile().toURI()), new HashMap<>());) {
+
+						Path pathInZip = zipFs.getPath("/" + corpusId, "documents");
 
 						Files.walkFileTree(pathInZip, new SimpleFileVisitor<Path>() {
 							@Override
@@ -202,7 +211,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 						log.error("Unable to upload corpus to Galaxy history", e);
 						status.put(workflowExecutionId, new ExecutionStatus(e));
 						return;
-					} 
+					}
 				} else {
 					try {
 						final File inputDir = toFile(new URL(corpusId));
@@ -228,7 +237,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 				 **/
 
 				Path outputDir = null;
-				
+
 				try {
 					outputDir = Files.createTempDirectory("omtd-workflow-output-");
 				} catch (IOException e) {
@@ -293,23 +302,22 @@ public class WorkflowServiceImpl implements WorkflowService {
 				}
 
 				try {
-					
+
 					if (corpusId.startsWith("file:")) {
-						File corpusDir = toFile(new URL(corpusId));			
-						Path corpusZip = Paths.get(corpusDir.getName()+".zip");
-						System.out.println(corpusDir.getName()+"\t"+corpusZip);						
+						File corpusDir = toFile(new URL(corpusId));
+						Path corpusZip = Paths.get(corpusDir.getName() + ".zip");
+						System.out.println(corpusDir.getName() + "\t" + corpusZip);
 						pack(outputDir, corpusZip);
 						status.put(workflowExecutionId, new ExecutionStatus(corpusZip.toUri().toString()));
-					}
-					else {
-						String archiveID = uploadArchive(storeClient,outputDir);
+					} else {
+						String archiveID = uploadArchive(storeClient, outputDir);
 						status.put(workflowExecutionId, new ExecutionStatus(archiveID));
 					}
 				} catch (IOException e) {
 					log.error("unable to store workflow results", e);
 					status.put(workflowExecutionId, new ExecutionStatus(e));
 					return;
-				}				
+				}
 			}
 		};
 
@@ -548,11 +556,12 @@ public class WorkflowServiceImpl implements WorkflowService {
 			// return the ID of the uploaded workflow
 			return workflow.getId();
 
-		} catch (IOException ex) {
+		} catch (Exception ex) {
 			// no idea what went wrong so just throw a exception
-			throw new RuntimeException(ex);
+			// throw new RuntimeException(ex);
 		}
 
+		return null;
 	}
 
 	/**
@@ -615,17 +624,17 @@ public class WorkflowServiceImpl implements WorkflowService {
 			});
 		}
 	}
-	
+
 	private static String uploadArchive(StoreRESTClient storeClient, Path archiveData) throws IOException {
 		String archiveID = storeClient.createArchive().getResponse();
 		String annotationsFolderId = storeClient.createSubArchive(archiveID, "annotations").getResponse();
-		
-		Files.walk(archiveData).filter(path -> !Files.isDirectory(path)).forEach(path -> {			
+
+		Files.walk(archiveData).filter(path -> !Files.isDirectory(path)).forEach(path -> {
 			storeClient.storeFile(path.toFile(), annotationsFolderId, path.getFileName().toString());
 		});
-		
+
 		storeClient.finalizeArchive(archiveID);
-		
+
 		return archiveID;
 	}
 }
