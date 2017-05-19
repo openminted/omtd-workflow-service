@@ -12,10 +12,12 @@ import org.junit.Test;
 import eu.openminted.registry.domain.Component;
 import eu.openminted.registry.domain.ComponentInfo;
 import eu.openminted.registry.domain.IdentificationInfo;
+import eu.openminted.registry.domain.MetadataHeaderInfo;
+import eu.openminted.registry.domain.MetadataIdentifier;
 import eu.openminted.registry.domain.ResourceIdentifier;
 import eu.openminted.store.restclient.StoreRESTClient;
-import eu.openminted.workflow.api.ExecutionStatus.Status;
 import eu.openminted.workflow.api.ExecutionStatus;
+import eu.openminted.workflow.api.ExecutionStatus.Status;
 import eu.openminted.workflow.api.WorkflowException;
 import eu.openminted.workflow.api.WorkflowJob;
 import eu.openminted.workflow.api.WorkflowService;
@@ -158,21 +160,15 @@ public class WorkflowServiceImplTest extends TestCase {
 	private String startWorkflow(WorkflowService workflowService, String workflowID, String corpusID)
 			throws WorkflowException {
 
-		// This can't possibly be the right way to set the ID of the workflow we
-		// want to run. Who codes something five levels deep just to get a
-		// single ID, especially as you end up at a list!
-		ResourceIdentifier workflowId = new ResourceIdentifier();
-		workflowId.setValue(workflowID);
-
-		IdentificationInfo workflowIdInfo = new IdentificationInfo();
-		workflowIdInfo.setIdentifiers(Arrays.asList(new ResourceIdentifier[] { workflowId }));
-
-		ComponentInfo workflowInfo = new ComponentInfo();
-		workflowInfo.setIdentificationInfo(workflowIdInfo);
-
+		MetadataIdentifier metadataId = new MetadataIdentifier();
+		metadataId.setValue(workflowID);
+		
+		MetadataHeaderInfo metadataHeaderInfo = new MetadataHeaderInfo();		
+		metadataHeaderInfo.setMetadataRecordIdentifier(metadataId);
+		
 		Component workflow = new Component();
-		workflow.setComponentInfo(workflowInfo);
-
+		workflow.setMetadataHeaderInfo(metadataHeaderInfo);
+		
 		WorkflowJob workflowJob = new WorkflowJob();
 		workflowJob.setWorkflow(workflow);
 
@@ -189,7 +185,7 @@ public class WorkflowServiceImplTest extends TestCase {
 
 	private String uploadArchive(StoreRESTClient storeClient, Path archiveData) throws IOException {
 		String archiveID = storeClient.createArchive().getResponse();
-		String annotationsFolderId = storeClient.createSubArchive(archiveID, "documents").getResponse();
+		String annotationsFolderId = storeClient.createSubArchive(archiveID, "fulltext").getResponse();
 
 		Files.walk(archiveData).filter(path -> !Files.isDirectory(path)).forEach(path -> {
 			storeClient.storeFile(path.toFile(), annotationsFolderId, path.getFileName().toString());

@@ -121,9 +121,8 @@ public class WorkflowServiceImpl implements WorkflowService {
 				// get clients for access to the workflows and histories
 				WorkflowsClient client = instance.getWorkflowsClient();
 
-				// This can't possible be sane, surely? :(
-				String workflowID = workflowJob.getWorkflow().getComponentInfo().getIdentificationInfo()
-						.getIdentifiers().get(0).getValue();
+				String workflowID = workflowJob.getWorkflow().getMetadataHeaderInfo().getMetadataRecordIdentifier()
+						.getValue();
 
 				// make sure we have the workflow we want to run and get it's
 				// details
@@ -175,7 +174,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					try (FileSystem zipFs = FileSystems
 							.newFileSystem(new URI("jar:" + corpusZip.getAbsoluteFile().toURI()), new HashMap<>());) {
 
-						Path pathInZip = zipFs.getPath("/" + corpusId, "documents");
+						Path pathInZip = zipFs.getPath("/" + corpusId, "fulltext");
 
 						Files.walkFileTree(pathInZip, new SimpleFileVisitor<Path>() {
 							@Override
