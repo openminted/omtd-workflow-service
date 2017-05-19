@@ -101,6 +101,10 @@ public class WorkflowServiceImpl implements WorkflowService {
 		Runnable runner = new Runnable() {
 
 			public void run() {
+				if (!shouldContinue(workflowExecutionId)) return;
+				
+				status.put(workflowExecutionId, new ExecutionStatus(Status.RUNNING));
+				
 				// get a handle on the Galaxy instance we want to talk to
 				GalaxyInstance instance = GalaxyInstanceFactory.get(galaxyInstanceUrl, galaxyApiKey);
 
@@ -149,7 +153,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 								corpusZip.getAbsolutePath());
 					} catch (IOException e) {
 						log.error("Unable to retrieve specified corpus with ID " + corpusId, e);
-						status.put(workflowExecutionId, new ExecutionStatus(Status.FAILED));
+						status.put(workflowExecutionId, new ExecutionStatus(e));
 						return;
 					}
 
@@ -196,7 +200,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 					} catch (IOException | InterruptedException | URISyntaxException e) {
 						log.error("Unable to upload corpus to Galaxy history", e);
-						status.put(workflowExecutionId, new ExecutionStatus(Status.FAILED));
+						status.put(workflowExecutionId, new ExecutionStatus(e));
 						return;
 					} 
 				} else {
@@ -212,12 +216,10 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 					} catch (InterruptedException | MalformedURLException e) {
 						log.error("Unable to upload corpus to Galaxy history", e);
-						status.put(workflowExecutionId, new ExecutionStatus(Status.FAILED));
+						status.put(workflowExecutionId, new ExecutionStatus(e));
 						return;
 					}
 				}
-
-				status.put(workflowExecutionId, new ExecutionStatus(Status.RUNNING));
 
 				/**
 				 * run the workflow over the corups. can this be done in one
@@ -231,7 +233,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					outputDir = Files.createTempDirectory("omtd-workflow-output-");
 				} catch (IOException e) {
 					log.error("Unable to create annotations output dir", e);
-					status.put(workflowExecutionId, new ExecutionStatus(Status.FAILED));
+					status.put(workflowExecutionId, new ExecutionStatus(e));
 					return;
 				}
 
@@ -241,6 +243,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 					if (!shouldContinue(workflowExecutionId)) {
 						log.debug("Workflow execution " + workflowExecutionId + " stopped early");
+						return;
 					}
 
 					// create a new workflow input in the correct history and
@@ -261,7 +264,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					} catch (InterruptedException e) {
 						// hmmmm that will mess things up
 						log.error("Interrupted waiting for a valid Galaxy history", e);
-						status.put(workflowExecutionId, new ExecutionStatus(Status.FAILED));
+						status.put(workflowExecutionId, new ExecutionStatus(e));
 						return;
 					}
 
@@ -280,7 +283,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 						// if we can't download the file then we have a
 						// problem....
 						log.error("Unable to download result from Galaxy history", e);
-						status.put(workflowExecutionId, new ExecutionStatus(Status.FAILED));
+						status.put(workflowExecutionId, new ExecutionStatus(e));
 						return;
 					}
 
@@ -296,15 +299,15 @@ public class WorkflowServiceImpl implements WorkflowService {
 						Path corpusZip = Paths.get(corpusDir.getName()+".zip");
 						System.out.println(corpusDir.getName()+"\t"+corpusZip);						
 						pack(outputDir, corpusZip);
-						status.put(workflowExecutionId, new ExecutionStatus(Status.FINISHED));
+						status.put(workflowExecutionId, new ExecutionStatus(corpusZip.toUri().toString()));
 					}
 					else {
 						String archiveID = uploadArchive(storeClient,outputDir);
-						status.put(workflowExecutionId, new ExecutionStatus(Status.FINISHED));
+						status.put(workflowExecutionId, new ExecutionStatus(archiveID));
 					}
 				} catch (IOException e) {
 					log.error("unable to store workflow results", e);
-					status.put(workflowExecutionId, new ExecutionStatus(Status.FAILED));
+					status.put(workflowExecutionId, new ExecutionStatus(e));
 					return;
 				}				
 			}

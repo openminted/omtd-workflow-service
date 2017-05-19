@@ -25,3 +25,4 @@ Workflow Service implementation using Galaxy as the execution engine
 ## Hints/Tips
 - for testing purposes if you use a file URL as the corpus ID then all documents within the directory pointed to by the URL are used for the corpus. This makes testing without an OMTD store instance easy
 - URLs and API keys are currently hardcoded into the test class, although they are specified in `application.properties` for normal use
+- Archive ID for the new corpus containing the annotations is stored in the ExecutionStatus object for the completed workflow job
