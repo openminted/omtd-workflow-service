@@ -4,6 +4,7 @@ Workflow Service implementation using Galaxy as the execution engine
 ## Assumptions
 - A document is passed into a workflow via the first input param called "Input Dataset" found within the workflow
   - this limits us to workflows that take a single dataset as input
+- A workflow should have no unset params (i.e. be a completely configured black box)
 - Regardless of how many outputs a workflow produces the last one is assumed to be the final output.
   - this means we skip intermediate results
   - but it also means that we loose output if, for some reason, a workflow produces multiple output files
