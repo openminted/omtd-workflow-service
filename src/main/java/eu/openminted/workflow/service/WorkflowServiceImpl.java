@@ -61,8 +61,8 @@ import eu.openminted.workflow.api.WorkflowException;
 import eu.openminted.workflow.api.WorkflowJob;
 import eu.openminted.workflow.api.WorkflowService;
 
-@RestController
-@EnableAutoConfiguration
+//@RestController
+//@EnableAutoConfiguration
 public class WorkflowServiceImpl implements WorkflowService {
 
 	private static Logger log = Logger.getLogger(WorkflowServiceImpl.class);
@@ -167,6 +167,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					// create a new history for this run and upload the input
 					// files to it
 					System.out.println(corpusZip.getAbsolutePath());
+					log.info(corpusZip.getAbsolutePath());
 					System.out.println(corpusId);
 
 					System.out.println(corpusZip.toURI());
