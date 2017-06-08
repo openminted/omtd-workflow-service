@@ -26,6 +26,7 @@ import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -41,8 +42,9 @@ import eu.openminted.workflow.api.WorkflowService;
 
 import eu.openminted.workflow.service.Galaxy;
 
-@RestController
-@EnableAutoConfiguration
+//@RestController
+//@EnableAutoConfiguration
+@Component
 public class WorkflowServiceImpl2 implements WorkflowService {
 
 	private Galaxy galaxy;
