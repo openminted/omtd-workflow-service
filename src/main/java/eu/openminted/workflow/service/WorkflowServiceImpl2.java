@@ -78,19 +78,24 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 	@SuppressWarnings("unused")
 	@Override
 	public String execute(WorkflowJob workflowJob) throws WorkflowException {
+		
+		log.info("execute started");		
 		galaxy = new Galaxy(galaxyInstanceUrl, galaxyApiKey);
+		log.info("connected to Galaxy");
 		
 		final String workflowExecutionId = UUID.randomUUID().toString();
 		status.put(workflowExecutionId, new ExecutionStatus(Status.PENDING));
 
-		log.debug("Starting workflow execution " + workflowExecutionId + " using Galaxy instance at "
+		log.info("Starting workflow execution " + workflowExecutionId + " using Galaxy instance at "
 				+ galaxyInstanceUrl);
 
 		Runnable runner = new Runnable() {
 
 			public void run() {
-				if (!shouldContinue(workflowExecutionId))
-					return;
+				//if (!shouldContinue(workflowExecutionId)){
+				//	log.info("shouldContinue false");
+				//	//return;					
+				//}
 
 				status.put(workflowExecutionId, new ExecutionStatus(Status.RUNNING));
 
@@ -111,7 +116,7 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 				final String testWorkflowId = galaxy.ensureHasWorkflow(workflowID);
 
 				if (testWorkflowId == null) {
-					log.error("Unable to locate workflow: " + workflowID);
+					log.info("Unable to locate workflow: " + workflowID);
 					status.put(workflowExecutionId,
 							new ExecutionStatus(new WorkflowException("Unable to locate named workflow")));
 					return;
@@ -135,18 +140,22 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 					File corpusZip;
 					try {
 						corpusZip = File.createTempFile("corpus", ".zip");
-						StoreResponse storeResponse = storeClient.downloadArchive(corpusId, corpusZip.getAbsolutePath());
+						String corpusZipFileName = corpusZip.getAbsolutePath();
+						corpusZip.delete();
+						log.info("download:" + corpusId + " to " + corpusZipFileName + " from " + storeEndpoint);
+						StoreResponse storeResponse = storeClient.downloadArchive(corpusId, corpusZipFileName);
+						
+						// create a new history for this run and upload the input
+						// files to it					
+						log.info("corpusZipFileName:" + corpusZipFileName);
+						log.info("corpusId:" + corpusId);
+						//log.info(corpusZip.toURI());
+						
 					} catch (IOException e) {
-						log.error("Unable to retrieve specified corpus with ID " + corpusId, e);
+						log.info("Unable to retrieve specified corpus with ID " + corpusId, e);
 						status.put(workflowExecutionId, new ExecutionStatus(e));
 						return;
 					}
-
-					// create a new history for this run and upload the input
-					// files to it					
-					log.info(corpusZip.getAbsolutePath());
-					log.info(corpusId);
-					log.info(corpusZip.toURI());
 
 					try (FileSystem zipFs = FileSystems
 							.newFileSystem(new URI("jar:" + corpusZip.getAbsoluteFile().toURI()), new HashMap<>());) {
@@ -236,7 +245,9 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 					log.error("unable to store workflow results", e);
 					status.put(workflowExecutionId, new ExecutionStatus(e));
 					return;
-				}				
+				}
+				
+				status.put(workflowExecutionId, new ExecutionStatus(Status.FINISHED));
 			}
 		};
 
@@ -248,6 +259,7 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 		 * get the status. this probably means spawning a thread for the actual
 		 * execution so we can monitor the status of the Galaxy job as it runs
 		 **/
+		
 		return workflowExecutionId.toString();
 	}
 

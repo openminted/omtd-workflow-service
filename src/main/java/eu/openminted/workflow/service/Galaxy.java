@@ -99,7 +99,7 @@ public class Galaxy {
 	private WorkflowOutputs run(String workflowId, String hasWorkflow, CollectionResponse collectionResponse,
 			String historyID) {
 		WorkflowOutputs output = null;
-
+		
 		WorkflowInputs.InputSourceType inputSource = WorkflowInputs.InputSourceType.HDCA;
 		log.info(workflowId + "->" + hasWorkflow);
 		WorkflowDetails workflowDetails = workflowsClient.showWorkflow(hasWorkflow);
@@ -108,6 +108,7 @@ public class Galaxy {
 		// "input_list");
 		String workflowInputId = getWorkflowInputId(workflowDetails, "Input Dataset Collection");
 
+		log.info("Configuring input");
 		WorkflowInputs workflowInputs = new WorkflowInputs();
 		workflowInputs.setDestination(new WorkflowInputs.ExistingHistory(historyID));
 		workflowInputs.setWorkflowId(hasWorkflow);
@@ -118,6 +119,7 @@ public class Galaxy {
 		printDetails(workflowInputs);
 		log.info("Run workflow");
 		output = workflowsClient.runWorkflow(workflowInputs);
+		//workflowsClient.runWorkflowResponse(workflowInputs)
 		log.info("Workflow started");
 
 		log.info("Waiting");
@@ -169,6 +171,7 @@ public class Galaxy {
 	public String ensureHasWorkflow(final String workflowName) {
 		String workflowId = null;
 		for (Workflow workflow : workflowsClient.getWorkflows()) {
+			log.info(workflow.getName() + " " + workflowName);
 			if (workflow.getName().startsWith(workflowName)) {
 				workflowId = workflow.getId();
 				break;
@@ -259,7 +262,9 @@ public class Galaxy {
 			final String label = inputEntry.getValue().getLabel();
 			log.info("label: " + label);
 			if (label.equals(inputLabel)) {
+				log.info("equal label: " + inputLabel);
 				workflowInputId = inputEntry.getKey();
+				log.info("workflowInputIdl: " + workflowInputId);
 			}
 		}
 
@@ -278,7 +283,7 @@ public class Galaxy {
 				// "eu.openminted.simplewokflows.dkpro.PipelinePDFToXMI");
 				// inputs.setStepParameter(stepId, "Workflow ID",
 				// "eu.openminted.simplewokflows.dkpro.PipelinePDFToXMI");
-				log.info(stepId + " parameter has been set");
+				///log.info(stepId + " parameter has been set");
 			}
 		}
 	}
