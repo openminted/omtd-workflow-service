@@ -227,14 +227,20 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 					return;
 				}
 				
-				galaxy.runWorkflow(workflowID, testWorkflowId, historyId, ids, filesList, outputDir.toFile().getAbsolutePath() + "/");
-								
+				boolean error = false;
+				
+				try{
+					galaxy.runWorkflow(workflowID, testWorkflowId, historyId, ids, filesList, outputDir.toFile().getAbsolutePath() + "/");	
+				}catch(Exception e){
+					log.info(e);
+					error = true;
+				}	
+				
 				try {
-
 					if (corpusId.startsWith("file:")) {
 						File corpusDir = toFile(new URL(corpusId));
 						Path corpusZip = Paths.get(corpusDir.getName() + ".zip");
-						System.out.println(corpusDir.getName() + "\t" + corpusZip);
+						log.info(corpusDir.getName() + "\t" + corpusZip);
 						pack(outputDir, corpusZip);
 						status.put(workflowExecutionId, new ExecutionStatus(corpusZip.toUri().toString()));
 					} else {
@@ -242,12 +248,15 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 						status.put(workflowExecutionId, new ExecutionStatus(archiveID));
 					}
 				} catch (IOException e) {
-					log.error("unable to store workflow results", e);
+					log.info("unable to store workflow results", e);
 					status.put(workflowExecutionId, new ExecutionStatus(e));
-					return;
+					error = true;
+					//return;
+				}				
+									
+				if(error){
+					status.put(workflowExecutionId, new ExecutionStatus(Status.FAILED));
 				}
-				
-				status.put(workflowExecutionId, new ExecutionStatus(Status.FINISHED));
 			}
 		};
 

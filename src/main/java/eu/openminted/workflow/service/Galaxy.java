@@ -81,8 +81,8 @@ public class Galaxy {
 	}
 
 	public void runWorkflow(String workflowId, String hasWorkflow, String historyID, List<String> inputIds,
-			ArrayList<File> filesList, String outputPAth) {
-		try {
+			ArrayList<File> filesList, String outputPAth) throws Exception{
+		
 			CollectionResponse collectionResponse = constructFileCollectionList(historyID, inputIds, filesList);
 			log.info("Created file collection");
 
@@ -90,10 +90,7 @@ public class Galaxy {
 
 			log.info("Download");
 			download(output, outputPAth);
-			log.info("Downloaded");
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+			log.info("Downloaded");		
 	}
 
 	private WorkflowOutputs run(String workflowId, String hasWorkflow, CollectionResponse collectionResponse,
