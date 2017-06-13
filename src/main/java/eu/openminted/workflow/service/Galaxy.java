@@ -15,12 +15,14 @@ import org.slf4j.LoggerFactory;
 import com.github.jmchilton.blend4j.galaxy.GalaxyInstance;
 import com.github.jmchilton.blend4j.galaxy.GalaxyInstanceFactory;
 import com.github.jmchilton.blend4j.galaxy.HistoriesClient;
+import com.github.jmchilton.blend4j.galaxy.JobsClient;
 import com.github.jmchilton.blend4j.galaxy.ToolsClient;
 import com.github.jmchilton.blend4j.galaxy.WorkflowsClient;
 import com.github.jmchilton.blend4j.galaxy.beans.History;
 import com.github.jmchilton.blend4j.galaxy.beans.HistoryContents;
 import com.github.jmchilton.blend4j.galaxy.beans.HistoryContentsProvenance;
 import com.github.jmchilton.blend4j.galaxy.beans.HistoryDetails;
+import com.github.jmchilton.blend4j.galaxy.beans.Job;
 import com.github.jmchilton.blend4j.galaxy.beans.OutputDataset;
 import com.github.jmchilton.blend4j.galaxy.beans.ToolExecution;
 import com.github.jmchilton.blend4j.galaxy.beans.Workflow;
@@ -48,11 +50,13 @@ public class Galaxy {
 	private GalaxyInstance galaxyInstance = null;
 	private WorkflowsClient workflowsClient;
 	private HistoriesClient historiesClient;
+	private JobsClient jobsClient;
 
 	public Galaxy(String galaxyInstanceUrl, String galaxyApiKey) {
 		galaxyInstance = GalaxyInstanceFactory.get(galaxyInstanceUrl, galaxyApiKey);
 		workflowsClient = galaxyInstance.getWorkflowsClient();
 		historiesClient = galaxyInstance.getHistoriesClient();
+		jobsClient = galaxyInstance.getJobsClient();
 	}
 	
 	public void runWorkflow(String inputData, String workflowId, String outputPAth) {
@@ -88,8 +92,12 @@ public class Galaxy {
 
 			WorkflowOutputs output = run(workflowId, hasWorkflow, collectionResponse, historyID);
 
+			log.info("waitJob");
+			waitJob(historyID);
+			
 			log.info("Download");
 			download(output, outputPAth);
+			
 			log.info("Downloaded");		
 	}
 
@@ -122,13 +130,15 @@ public class Galaxy {
 		
 		// make sure the workflow has finished and the history is in
 		// the "ok" state before proceeding any further
-		try {
+		try {			
 			long startTime = System.currentTimeMillis();
 			log.info("Waiting history for results:");			
 			waitForHistory(historyID);
 			long endTime = System.currentTimeMillis();
 			long timeElapsed = (endTime-startTime);
 			log.info("Waited history for results:" +  timeElapsed +  " " + timeElapsed/1000);
+			
+			
 		} catch (InterruptedException e) {
 			// hmmmm that will mess things up
 			log.error("Interrupted waiting for a valid Galaxy history", e);
@@ -139,6 +149,36 @@ public class Galaxy {
 		return output;
 	}
 
+	private void waitJob(String historyID){
+		
+		while(!allOK(historyID)){
+	
+			try {
+				log.info("Sleep");
+				Thread.sleep(10000L);
+			} catch (Exception e) {
+
+			}
+		}				
+	}
+	
+	private boolean allOK(String historyID){
+		boolean allSubOK = true;
+		
+		List<Job> jobs = jobsClient.getJobsForHistory(historyID);
+		log.info("Jobs.. for " + historyID + " " + jobs.size());
+		for(Job job: jobs){			
+			log.info(job.getState());
+			
+			if(!job.getState().equalsIgnoreCase("ok")){
+				allSubOK = false;
+				break;
+			}				
+		}
+		
+		return allSubOK;
+	}
+	
 	private CollectionResponse constructFileCollectionList(String historyId, List<String> inputIds, List<File> files) {
 		HistoriesClient historiesClient = galaxyInstance.getHistoriesClient();
 
@@ -310,14 +350,8 @@ public class Galaxy {
 
 	}
 
-	private void download(WorkflowOutputs output, String path) {
-
-		try {
-			Thread.sleep(120000L);
-		} catch (Exception e) {
-
-		}
-
+	private void download(WorkflowOutputs output, String path) {		
+		
 		for (final String outputId : output.getOutputIds()) {
 			System.out.println("  Workflow Output ID " + outputId);
 		}
