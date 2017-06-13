@@ -119,12 +119,16 @@ public class Galaxy {
 		//workflowsClient.runWorkflowResponse(workflowInputs)
 		log.info("Workflow started");
 
-		log.info("Waiting");
+		
 		// make sure the workflow has finished and the history is in
 		// the "ok" state before proceeding any further
 		try {
-			// waitForHistory(output.getHistoryId());
+			long startTime = System.currentTimeMillis();
+			log.info("Waiting history for results:");			
 			waitForHistory(historyID);
+			long endTime = System.currentTimeMillis();
+			long timeElapsed = (endTime-startTime);
+			log.info("Waited history for results:" +  timeElapsed +  " " + timeElapsed/1000);
 		} catch (InterruptedException e) {
 			// hmmmm that will mess things up
 			log.error("Interrupted waiting for a valid Galaxy history", e);
