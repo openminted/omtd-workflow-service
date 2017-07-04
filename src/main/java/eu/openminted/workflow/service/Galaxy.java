@@ -23,6 +23,8 @@ import com.github.jmchilton.blend4j.galaxy.beans.HistoryContents;
 import com.github.jmchilton.blend4j.galaxy.beans.HistoryContentsProvenance;
 import com.github.jmchilton.blend4j.galaxy.beans.HistoryDetails;
 import com.github.jmchilton.blend4j.galaxy.beans.Job;
+import com.github.jmchilton.blend4j.galaxy.beans.JobDetails;
+import com.github.jmchilton.blend4j.galaxy.beans.JobInputOutput;
 import com.github.jmchilton.blend4j.galaxy.beans.OutputDataset;
 import com.github.jmchilton.blend4j.galaxy.beans.ToolExecution;
 import com.github.jmchilton.blend4j.galaxy.beans.Workflow;
@@ -90,14 +92,13 @@ public class Galaxy {
 			CollectionResponse collectionResponse = constructFileCollectionList(historyID, inputIds, filesList);
 			log.info("Created file collection");
 
-			WorkflowOutputs output = run(workflowId, hasWorkflow, collectionResponse, historyID);
+			WorkflowOutputs workflowOutputs = run(workflowId, hasWorkflow, collectionResponse, historyID);
 
 			log.info("waitJob");
 			waitJob(historyID);
 			
-			log.info("Download");
-			download(output, outputPAth);
-			
+			log.info("Starting download");
+			download(workflowOutputs, outputPAth);			
 			log.info("Downloaded");		
 	}
 
@@ -151,32 +152,44 @@ public class Galaxy {
 
 	private void waitJob(String historyID){
 		
-		while(!allOK(historyID)){
+		while(!jobsForHistoryAreCompleted(historyID)){
 	
 			try {
 				log.info("Sleep");
-				Thread.sleep(10000L);
+				Thread.sleep(5000L);
 			} catch (Exception e) {
 
 			}
 		}				
 	}
 	
-	private boolean allOK(String historyID){
-		boolean allSubOK = true;
+	private boolean jobsForHistoryAreCompleted(String historyID){
+		boolean completed = true;
 		
 		List<Job> jobs = jobsClient.getJobsForHistory(historyID);
-		log.info("Jobs.. for " + historyID + " " + jobs.size());
+		log.info("Jobs for history" + historyID + " are " + jobs.size());
+		
 		for(Job job: jobs){			
-			log.info(job.getState());
 			
-			if(!job.getState().equalsIgnoreCase("ok")){
-				allSubOK = false;
+			log.info(jobToString(job));
+			
+			JobDetails details = jobsClient.showJob(job.getId());
+			
+			log.info("Exit code:" + details.getExitCode());
+			Iterator<String> it = details.getOutputs().keySet().iterator();
+			while(it.hasNext()){
+				String key = it.next();
+				JobInputOutput jIO = details.getOutputs().get(key);
+				log.info("JobInputOutput:" + jIO.getSource());
+			}
+			
+			if(! (job.getState().equalsIgnoreCase("ok") || job.getState().equalsIgnoreCase("error")) ){
+				completed = false;
 				break;
 			}				
-		}
+		}				
 		
-		return allSubOK;
+		return completed;
 	}
 	
 	private CollectionResponse constructFileCollectionList(String historyId, List<String> inputIds, List<File> files) {
@@ -353,11 +366,20 @@ public class Galaxy {
 	private void download(WorkflowOutputs output, String path) {		
 		
 		for (final String outputId : output.getOutputIds()) {
-			System.out.println("  Workflow Output ID " + outputId);
+			log.info("Workflow Output ID " + outputId);
 		}
 
-		String outputId = output.getOutputIds().get(output.getOutputIds().size() - 1);
-		log.info("outputId:" + outputId);
+		int outIndex = output.getOutputIds().size() - 1;
+		String outputId = null;
+		
+		if(outIndex >= 0){
+			outputId = output.getOutputIds().get(outIndex);
+			log.info("outputId:" + outputId);
+		}else{
+			log.info("outIndex = " + outIndex);
+			log.info("no intermediate results");
+			outIndex = 0;			
+		}
 
 		// download this output into the local file
 		try {
@@ -395,6 +417,8 @@ public class Galaxy {
 				 * resp.getId(), outputFile); } //cr. }
 				 */
 			}
+			
+			
 		} catch (Exception e) {
 			// if we can't download the file then we have a
 			// problem....
@@ -405,4 +429,13 @@ public class Galaxy {
 
 	}
 
+	private String jobToString(Job job){
+		String ret = "job[ " + 
+				"state:" + job.getState() + ", " + 
+				"toolID:" + job.getToolId() +  ", " +
+				"created:" + job.getCreated() +  ", " +
+				"updated:" + job.getUpdated() +  ", " +				
+				"]";
+		return ret;
+	}
 }
