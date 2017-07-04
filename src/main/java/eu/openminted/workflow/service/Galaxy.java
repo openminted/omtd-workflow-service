@@ -173,20 +173,27 @@ public class Galaxy {
 			
 			log.info(jobToString(job));
 			
-			JobDetails details = jobsClient.showJob(job.getId());
+			JobDetails jobDetails = jobsClient.showJob(job.getId());
+			Integer exitCode = jobDetails.getExitCode();
 			
-			log.info("Exit code:" + details.getExitCode());
-			Iterator<String> it = details.getOutputs().keySet().iterator();
+			log.info("Exit code:" + exitCode);
+			Iterator<String> it = jobDetails.getOutputs().keySet().iterator();
 			while(it.hasNext()){
 				String key = it.next();
-				JobInputOutput jIO = details.getOutputs().get(key);
+				JobInputOutput jIO = jobDetails.getOutputs().get(key);
 				log.info("JobInputOutput:" + jIO.getSource());
 			}
 			
+			/*
 			if(! (job.getState().equalsIgnoreCase("ok") || job.getState().equalsIgnoreCase("error")) ){
 				completed = false;
 				break;
-			}				
+			}*/
+
+			if(exitCode == null){
+				completed = false;
+				break;
+			}
 		}				
 		
 		return completed;
