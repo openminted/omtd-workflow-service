@@ -92,11 +92,18 @@ public class Galaxy {
 			CollectionResponse collectionResponse = constructFileCollectionList(historyID, inputIds, filesList);
 			log.info("Created file collection");
 
+			log.info("---");
 			WorkflowOutputs workflowOutputs = run(workflowId, hasWorkflow, collectionResponse, historyID);
 
-			log.info("waitJob");
-			waitJob(historyID);
+			log.info("waitJobs");
+			waitJobs(historyID);
 			
+			log.info("waitHistory:");
+			waitForHistory2(historyID);
+			
+			// Jobs for this history have been completed
+			// Also history is OK. 
+			// So, start downloading 
 			log.info("Starting download");
 			download(workflowOutputs, outputPAth);			
 			log.info("Downloaded");		
@@ -127,8 +134,13 @@ public class Galaxy {
 		output = workflowsClient.runWorkflow(workflowInputs);
 		//workflowsClient.runWorkflowResponse(workflowInputs)
 		log.info("Workflow started");
-
 		
+		//waitForHistory2(historyID);
+
+		return output;
+	}
+
+	private void waitForHistory2(String historyID){
 		// make sure the workflow has finished and the history is in
 		// the "ok" state before proceeding any further
 		try {			
@@ -144,13 +156,11 @@ public class Galaxy {
 			// hmmmm that will mess things up
 			log.error("Interrupted waiting for a valid Galaxy history", e);
 			// status.put(workflowExecutionId, new ExecutionStatus(e));
-			return output;
+			//return output;
 		}
-
-		return output;
 	}
-
-	private void waitJob(String historyID){
+	
+	private void waitJobs(String historyID){
 		
 		while(!jobsForHistoryAreCompleted(historyID)){
 	
@@ -158,7 +168,7 @@ public class Galaxy {
 				log.info("Sleep");
 				Thread.sleep(5000L);
 			} catch (Exception e) {
-
+				log.info("Sleep issue");
 			}
 		}				
 	}
@@ -429,9 +439,9 @@ public class Galaxy {
 		} catch (Exception e) {
 			// if we can't download the file then we have a
 			// problem....
-			log.error("Unable to download result from Galaxy history", e);
+			log.info("Unable to download result from Galaxy history", e);
 			// status.put(workflowExecutionId, new ExecutionStatus(e));
-			return;
+			// return;
 		}
 
 	}
