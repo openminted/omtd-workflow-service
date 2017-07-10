@@ -45,11 +45,12 @@
 			<version>0.0.1-SNAPSHOT</version>
 		</dependency>
 		<dependency>
-			<groupId>com.github.Arpic</groupId>
-			<artifactId>blend4j</artifactId>
-			<!-- this is the commit containing the fix MAG supplied -->
-			<version>1f3c6e4293</version>
-		</dependency>
+			<!-- this is the version that first provided support for invoke -->
+	    	<groupId>com.github.greenwoodma</groupId>
+	    	<artifactId>blend4j</artifactId>
+	    	<version>53991fd1b1</version>
+	</dependency>
+
 	</dependencies>
 
 	<repositories>

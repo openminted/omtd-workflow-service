@@ -45,6 +45,7 @@ import com.github.jmchilton.blend4j.galaxy.beans.Workflow;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowDetails;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputDefinition;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputs;
+import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInvokcationState;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputs.ExistingHistory;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputs.InputSourceType;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputs.WorkflowInput;
@@ -264,12 +265,13 @@ public class WorkflowServiceImpl implements WorkflowService {
 							new WorkflowInput(id, InputSourceType.HDA));
 
 					// run the workflow and get a handle on the outputs produced
-					final WorkflowOutputs output = client.runWorkflow(inputs);
+					final WorkflowInvokcationState output = client.invokeWorkflow(inputs);
+					System.out.println(output.getId()+"|"+output.getState());
 
 					// make sure the workflow has finished and the history is in
 					// the "ok" state before proceeding any further
 					try {
-						waitForHistory(historiesClient, output.getHistoryId());
+						waitForHistory(historiesClient, historyId);
 					} catch (InterruptedException e) {
 						// hmmmm that will mess things up
 						log.error("Interrupted waiting for a valid Galaxy history", e);
@@ -277,7 +279,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 						return;
 					}
 
-					// we don't care about intermediary results so just retrieve
+					/*// we don't care about intermediary results so just retrieve
 					// the final output from the workflow
 					String outputId = output.getOutputIds().get(output.getOutputIds().size() - 1);
 
@@ -296,9 +298,36 @@ public class WorkflowServiceImpl implements WorkflowService {
 						return;
 					}
 
-					// as a bit of debugging print the file path and length
-					// TODO this should add to a corpus going into the store
-					System.out.println(outputFile.getAbsolutePath() + ": " + outputFile.length());
+					*/
+					
+					List<HistoryContents> hc = historiesClient.showHistoryContents(output.getHistoryId());
+					for (final HistoryContents element : hc) {
+						log.info(element.getId() + "|" + element.getName() + "|" + element.getHistoryContentType());
+
+						File outputFile = new File(outputDir.toFile(), element.getName());
+						/*if (!f.exists()) {
+							f.mkdirs();
+						}
+						File outputFile = new File(path + element.getName());*/
+
+						if (element.getHistoryContentType().equalsIgnoreCase("dataset")) {
+							log.info("Downloading dataset to " + outputFile.getAbsolutePath());
+							try {
+								historiesClient.downloadDataset(output.getHistoryId(), element.getId(), outputFile);
+							} catch (IOException e) {
+								// if we can't download the file then we have a
+								// problem....
+								log.error("Unable to download result from Galaxy history", e);
+								status.put(workflowExecutionId, new ExecutionStatus(e));
+								return;
+							}
+							
+							// as a bit of debugging print the file path and length
+							// TODO this should add to a corpus going into the store
+							System.out.println(outputFile.getAbsolutePath() + ": " + outputFile.length());
+						}
+						
+					}					
 				}
 
 				try {

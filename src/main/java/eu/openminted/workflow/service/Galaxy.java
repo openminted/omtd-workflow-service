@@ -1,7 +1,6 @@
 package eu.openminted.workflow.service;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -31,15 +30,13 @@ import com.github.jmchilton.blend4j.galaxy.beans.Workflow;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowDetails;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputDefinition;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputs;
+import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInvokcationState;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowOutputs;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowStepDefinition;
 import com.github.jmchilton.blend4j.galaxy.beans.collection.request.CollectionDescription;
 import com.github.jmchilton.blend4j.galaxy.beans.collection.request.HistoryDatasetElement;
-import com.github.jmchilton.blend4j.galaxy.beans.collection.response.CollectionElementResponse;
 import com.github.jmchilton.blend4j.galaxy.beans.collection.response.CollectionResponse;
 import com.google.common.collect.Lists;
-
-import eu.openminted.workflow.api.ExecutionStatus;
 
 /**
  * @author ilsp
@@ -93,7 +90,7 @@ public class Galaxy {
 			log.info("Created file collection");
 
 			log.info("---");
-			WorkflowOutputs workflowOutputs = run(workflowId, hasWorkflow, collectionResponse, historyID);
+			WorkflowInvokcationState workflowOutputs = run(workflowId, hasWorkflow, collectionResponse, historyID);
 
 			log.info("waitJobs");
 			waitJobs(historyID);
@@ -109,9 +106,9 @@ public class Galaxy {
 			log.info("Downloaded");		
 	}
 
-	private WorkflowOutputs run(String workflowId, String hasWorkflow, CollectionResponse collectionResponse,
+	private WorkflowInvokcationState run(String workflowId, String hasWorkflow, CollectionResponse collectionResponse,
 			String historyID) {
-		WorkflowOutputs output = null;
+		WorkflowInvokcationState output = null;
 		
 		WorkflowInputs.InputSourceType inputSource = WorkflowInputs.InputSourceType.HDCA;
 		log.info(workflowId + "->" + hasWorkflow);
@@ -131,7 +128,7 @@ public class Galaxy {
 		setParameters(workflowInputs);
 		printDetails(workflowInputs);
 		log.info("Run workflow");
-		output = workflowsClient.runWorkflow(workflowInputs);
+		output = workflowsClient.invokeWorkflow(workflowInputs);
 		//workflowsClient.runWorkflowResponse(workflowInputs)
 		log.info("Workflow started");
 		
@@ -380,9 +377,9 @@ public class Galaxy {
 
 	}
 
-	private void download(WorkflowOutputs output, String path) {		
+	private void download(WorkflowInvokcationState output, String path) {		
 		
-		for (final String outputId : output.getOutputIds()) {
+		/*for (final String outputId : output.getOutputIds()) {
 			log.info("Workflow Output ID " + outputId);
 		}
 
@@ -396,7 +393,7 @@ public class Galaxy {
 			log.info("outIndex = " + outIndex);
 			log.info("no intermediate results");
 			outIndex = 0;			
-		}
+		}*/
 
 		// download this output into the local file
 		try {
