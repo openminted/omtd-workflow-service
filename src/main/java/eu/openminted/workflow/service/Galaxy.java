@@ -31,6 +31,7 @@ import com.github.jmchilton.blend4j.galaxy.beans.Workflow;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowDetails;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputDefinition;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputs;
+import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInvokcationState;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowOutputs;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowStepDefinition;
 import com.github.jmchilton.blend4j.galaxy.beans.collection.request.CollectionDescription;
@@ -54,17 +55,28 @@ public class Galaxy {
 	private HistoriesClient historiesClient;
 	private JobsClient jobsClient;
 
+	private String scriptsPath;
+	
+	
+	public String getScriptsPath() {
+		return scriptsPath;
+	}
+
+	public void setScriptsPath(String scriptsPath) {
+		this.scriptsPath = scriptsPath;
+	}
+
 	public Galaxy(String galaxyInstanceUrl, String galaxyApiKey) {
 		galaxyInstance = GalaxyInstanceFactory.get(galaxyInstanceUrl, galaxyApiKey);
 		workflowsClient = galaxyInstance.getWorkflowsClient();
 		historiesClient = galaxyInstance.getHistoriesClient();
 		jobsClient = galaxyInstance.getJobsClient();
 	}
-	
-	public void runWorkflow(String inputData, String workflowId, String outputPAth) {
 
-		String hasWorkflow = ensureHasWorkflow(workflowId);
-		if (hasWorkflow != null) {
+	public void runWorkflow(String inputData, String workflowName, String outputPAth) {
+
+		String workflowID = ensureHasWorkflow(workflowName);
+		if (workflowID != null) {
 
 			try {
 				String historyID = createHistory();
@@ -76,46 +88,55 @@ public class Galaxy {
 				List<String> inputIds = populateHistory(historyID, filesList);
 				log.info("Populated history");
 
-				this.runWorkflow(workflowId, hasWorkflow, historyID, inputIds, filesList, outputPAth);
+				this.runWorkflow(workflowName, workflowID, historyID, inputIds, filesList, outputPAth);
 			} catch (Exception e) {
 				log.info(e.getMessage());
 			}
 
 		} else {
-			log.info("Workflow " + workflowId + " does not exist");
+			log.info("Workflow " + workflowName + " does not exist");
 		}
 	}
 
-	public void runWorkflow(String workflowId, String hasWorkflow, String historyID, List<String> inputIds,
-			ArrayList<File> filesList, String outputPAth) throws Exception{
+	public void runWorkflow(String workflowName, String workflowID, String historyID, List<String> inputIds,
+			ArrayList<File> filesList, String outputPAth) throws Exception {
+
+		CollectionResponse collectionResponse = constructFileCollectionList(historyID, inputIds, filesList);
+		log.info("Created file collection");
+
+		log.info("---");
+		//WorkflowOutputs workflowOutputs = run(workflowName, workflowID, collectionResponse, historyID);
+		WorkflowInvokcationState workflowOutputs = run(workflowName, workflowID, collectionResponse, historyID);
+
+		log.info("waitJobs");
+		int count = countTools(workflowID);
+		log.info("tools counted:" + count);
+				
+		log.info("waitJobs");
+		waitUntilHistoryIsReady(historyID);
 		
-			CollectionResponse collectionResponse = constructFileCollectionList(historyID, inputIds, filesList);
-			log.info("Created file collection");
+		log.info("waitJobs");
+		waitJobs(historyID, count);
 
-			log.info("---");
-			WorkflowOutputs workflowOutputs = run(workflowId, hasWorkflow, collectionResponse, historyID);
+		log.info("waitHistory:");
+		waitForHistory2(historyID);
 
-			log.info("waitJobs");
-			waitJobs(historyID);
-			
-			log.info("waitHistory:");
-			waitForHistory2(historyID);
-			
-			// Jobs for this history have been completed
-			// Also history is OK. 
-			// So, start downloading 
-			log.info("Starting download");
-			download(workflowOutputs, outputPAth);			
-			log.info("Downloaded");		
+		// Jobs for this history have been completed
+		// Also history is OK.
+		// So, start downloading
+		log.info("Starting download");
+		//download(workflowOutputs, outputPAth);
+		downloadHistoryContents(historyID, outputPAth);
+		log.info("Downloaded");
 	}
 
-	private WorkflowOutputs run(String workflowId, String hasWorkflow, CollectionResponse collectionResponse,
+	private WorkflowInvokcationState run(String workflowName, String workflowID, CollectionResponse collectionResponse,
 			String historyID) {
-		WorkflowOutputs output = null;
-		
+		WorkflowInvokcationState output = null;
+
 		WorkflowInputs.InputSourceType inputSource = WorkflowInputs.InputSourceType.HDCA;
-		log.info(workflowId + "->" + hasWorkflow);
-		WorkflowDetails workflowDetails = workflowsClient.showWorkflow(hasWorkflow);
+		log.info(workflowName + "->" + workflowID);
+		WorkflowDetails workflowDetails = workflowsClient.showWorkflow(workflowID);
 
 		// String workflowInputId = getWorkflowInputId(workflowDetails,
 		// "input_list");
@@ -124,91 +145,152 @@ public class Galaxy {
 		log.info("Configuring input");
 		WorkflowInputs workflowInputs = new WorkflowInputs();
 		workflowInputs.setDestination(new WorkflowInputs.ExistingHistory(historyID));
-		workflowInputs.setWorkflowId(hasWorkflow);
+		workflowInputs.setWorkflowId(workflowID);
 		workflowInputs.setInput(workflowInputId,
 				new WorkflowInputs.WorkflowInput(collectionResponse.getId(), inputSource));
 
 		setParameters(workflowInputs);
 		printDetails(workflowInputs);
-		log.info("Run workflow");
-		output = workflowsClient.runWorkflow(workflowInputs);
-		//workflowsClient.runWorkflowResponse(workflowInputs)
-		log.info("Workflow started");
 		
-		//waitForHistory2(historyID);
+		
+		log.info("Run workflow");
+		
+		// output = workflowsClient.runWorkflow(workflowInputs);
+		// runWorkflowPy(workflowID, historyID, collectionResponse.getId());	
+		invokeWorkflow(workflowInputs);
+		log.info("Workflow started");
+
+		// waitForHistory2(historyID);
 
 		return output;
 	}
-
-	private void waitForHistory2(String historyID){
+	
+	private WorkflowInvokcationState invokeWorkflow(WorkflowInputs workflowInputs){
+		log.info("invoke...workflow");
+		WorkflowInvokcationState output = workflowsClient.invokeWorkflow(workflowInputs);
+		return output;
+	}
+	
+	private void runWorkflowPy(String workflowID, String historyID, String collectionID){
+		try {
+			Runtime rt = Runtime.getRuntime();
+			// galaxyEnpoint, galaxyAPIKey, wid, inputSource, collectionID, historyID
+			String cmd = "/usr/bin/python " + this.scriptsPath + "invoke.py " + 
+					this.galaxyInstance.getGalaxyUrl() + " " + 
+					this.galaxyInstance.getApiKey() + " " + 
+					workflowID + " " +
+					"hdca " +  
+					collectionID + " " + 
+					historyID;
+			log.info("cmd:" + cmd);		
+			Process proc = rt.exec(cmd);
+			proc.waitFor();
+			int exitVal = proc.exitValue();
+			
+			log.info("Process exitValue for invoke workflow: " + exitVal);
+		} catch (Throwable t) {
+			t.printStackTrace();
+		}
+	
+	}
+	
+	private void waitUntilHistoryIsReady(final String historyId) throws InterruptedException{
+		boolean finished = false;
+		
+	    while (!finished) {
+            log.info("- Now waiting for seconds...");
+            Thread.sleep(5000);
+            finished = isHistoryReady(historyId);
+        }
+   
+    }
+	
+	private boolean isHistoryReady(final String historyId) {
+		final HistoryDetails historyDetails = historiesClient.showHistory(historyId);
+	    // If the input/output file count is known, it could be checked too:
+	    //                       historyDetails.getStateIds().get(STATE_OK).size() == [n]
+	    final boolean finished = historyDetails.getStateIds().get("running").size() == 0
+	                             && historyDetails.getStateIds().get("queued").size() == 0;
+	    log.info("finished: " + finished);
+	    log.info("History state IDs: {}.", historyDetails.getStateIds());
+	    return finished;
+	}
+    
+	
+	private void waitForHistory2(String historyID) {
 		// make sure the workflow has finished and the history is in
 		// the "ok" state before proceeding any further
-		try {			
+		try {
 			long startTime = System.currentTimeMillis();
-			log.info("Waiting history for results:");			
+			log.info("Waiting history for results:");
 			waitForHistory(historyID);
 			long endTime = System.currentTimeMillis();
-			long timeElapsed = (endTime-startTime);
-			log.info("Waited history for results:" +  timeElapsed +  " " + timeElapsed/1000);
-			
-			
+			long timeElapsed = (endTime - startTime);
+			log.info("Waited history for results:" + timeElapsed + " " + timeElapsed / 1000);
+
 		} catch (InterruptedException e) {
 			// hmmmm that will mess things up
 			log.error("Interrupted waiting for a valid Galaxy history", e);
 			// status.put(workflowExecutionId, new ExecutionStatus(e));
-			//return output;
+			// return output;
 		}
 	}
-	
-	private void waitJobs(String historyID){
-		
-		while(!jobsForHistoryAreCompleted(historyID)){
-	
+
+	private void waitJobs(String historyID, int count) {
+
+		while (!jobsForHistoryAreCompleted(historyID, count)) {
+
 			try {
 				log.info("Sleep");
 				Thread.sleep(5000L);
 			} catch (Exception e) {
 				log.info("Sleep issue");
 			}
-		}				
+		}
 	}
-	
-	private boolean jobsForHistoryAreCompleted(String historyID){
+
+	private boolean jobsForHistoryAreCompleted(String historyID, int count) {
 		boolean completed = true;
 		
 		List<Job> jobs = jobsClient.getJobsForHistory(historyID);
 		log.info("Jobs for history" + historyID + " are " + jobs.size());
-		
-		for(Job job: jobs){			
-			
+
+		int toolsCount = 0;
+		for (Job job : jobs) {
+
 			log.info(jobToString(job));
-			
+
 			JobDetails jobDetails = jobsClient.showJob(job.getId());
 			Integer exitCode = jobDetails.getExitCode();
-			
+
 			log.info("Exit code:" + exitCode);
 			Iterator<String> it = jobDetails.getOutputs().keySet().iterator();
-			while(it.hasNext()){
+			while (it.hasNext()) {
 				String key = it.next();
 				JobInputOutput jIO = jobDetails.getOutputs().get(key);
 				log.info("JobInputOutput:" + jIO.getSource());
 			}
-			
-			/*
-			if(! (job.getState().equalsIgnoreCase("ok") || job.getState().equalsIgnoreCase("error")) ){
-				completed = false;
-				break;
-			}*/
 
-			if(exitCode == null){
+			/*
+			 * if(! (job.getState().equalsIgnoreCase("ok") ||
+			 * job.getState().equalsIgnoreCase("error")) ){ completed = false;
+			 * break; }
+			 */
+
+			if (!job.getToolId().startsWith("upload")){				
+				toolsCount++;
+				log.info(job.getToolId() + "***" + toolsCount);
+			}
+				
+			if (exitCode == null) {
 				completed = false;
 				break;
 			}
-		}				
-		
-		return completed;
+		}
+
+		return completed && (toolsCount == count);
 	}
-	
+
 	private CollectionResponse constructFileCollectionList(String historyId, List<String> inputIds, List<File> files) {
 		HistoriesClient historiesClient = galaxyInstance.getHistoriesClient();
 
@@ -354,7 +436,7 @@ public class Galaxy {
 				// "eu.openminted.simplewokflows.dkpro.PipelinePDFToXMI");
 				// inputs.setStepParameter(stepId, "Workflow ID",
 				// "eu.openminted.simplewokflows.dkpro.PipelinePDFToXMI");
-				///log.info(stepId + " parameter has been set");
+				/// log.info(stepId + " parameter has been set");
 			}
 		}
 	}
@@ -377,31 +459,51 @@ public class Galaxy {
 			}
 
 		}
-
 	}
 
-	private void download(WorkflowOutputs output, String path) {		
+	private int countTools(String wid) {
+		int count = 0;
+		final WorkflowDetails workflowDetails = workflowsClient.showWorkflow(wid);
+		// workflowDetails.getInputs();
+
+		for (final Map.Entry<String, WorkflowStepDefinition> entry : workflowDetails.getSteps().entrySet()) {
+			final String stepId = entry.getKey();
+			final WorkflowStepDefinition stepDef = entry.getValue();
+			
+			if(stepDef.getType().equalsIgnoreCase("tool")){
+				count++;
+			}
+		}
 		
+		return count;
+	}
+	private void download(WorkflowOutputs output, String path) {
+
 		for (final String outputId : output.getOutputIds()) {
 			log.info("Workflow Output ID " + outputId);
 		}
 
 		int outIndex = output.getOutputIds().size() - 1;
 		String outputId = null;
-		
-		if(outIndex >= 0){
+
+		if (outIndex >= 0) {
 			outputId = output.getOutputIds().get(outIndex);
 			log.info("outputId:" + outputId);
-		}else{
+		} else {
 			log.info("outIndex = " + outIndex);
 			log.info("no intermediate results");
-			outIndex = 0;			
+			outIndex = 0;
 		}
+		
+		downloadHistoryContents(output.getHistoryId(), path);
+	}
 
+	private void downloadHistoryContents(String historyID, String path){
+		
 		// download this output into the local file
 		try {
 
-			List<HistoryContents> hc = historiesClient.showHistoryContents(output.getHistoryId());
+			List<HistoryContents> hc = historiesClient.showHistoryContents(historyID);
 			for (final HistoryContents element : hc) {
 				log.info(element.getId() + "|" + element.getName() + "|" + element.getHistoryContentType());
 
@@ -413,7 +515,7 @@ public class Galaxy {
 
 				if (element.getHistoryContentType().equalsIgnoreCase("dataset")) {
 					log.info("Downloading dataset to " + outputFile.getAbsolutePath());
-					historiesClient.downloadDataset(output.getHistoryId(), element.getId(), outputFile);
+					historiesClient.downloadDataset(historyID, element.getId(), outputFile);
 				}
 
 				/*
@@ -434,25 +536,22 @@ public class Galaxy {
 				 * resp.getId(), outputFile); } //cr. }
 				 */
 			}
-			
-			
+
 		} catch (Exception e) {
 			// if we can't download the file then we have a
 			// problem....
 			log.info("Unable to download result from Galaxy history", e);
 			// status.put(workflowExecutionId, new ExecutionStatus(e));
 			// return;
-		}
-
+		}	
 	}
+	
 
-	private String jobToString(Job job){
-		String ret = "job[ " + 
-				"state:" + job.getState() + ", " + 
-				"toolID:" + job.getToolId() +  ", " +
-				"created:" + job.getCreated() +  ", " +
-				"updated:" + job.getUpdated() +  ", " +				
-				"]";
+
+
+	private String jobToString(Job job) {
+		String ret = "job[ " + "state:" + job.getState() + ", " + "toolID:" + job.getToolId() + ", " + "created:"
+				+ job.getCreated() + ", " + "updated:" + job.getUpdated() + ", " + "]";
 		return ret;
 	}
 }

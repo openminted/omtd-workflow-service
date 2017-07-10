@@ -62,6 +62,9 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 	@Value("${store.endpoint}")
 	String storeEndpoint;
 
+	@Value("${galaxy.scriptsPath}")
+	String galaxyScriptsPath;
+	
 	@RequestMapping("/")
 	String home() {
 		return "omtd-workflow-service for <a href=\"" + galaxyInstanceUrl + "\">galaxy</a>";
@@ -230,6 +233,7 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 				boolean error = false;
 				
 				try{
+					galaxy.setScriptsPath(galaxyScriptsPath);
 					galaxy.runWorkflow(workflowID, testWorkflowId, historyId, ids, filesList, outputDir.toFile().getAbsolutePath() + "/");	
 				}catch(Exception e){
 					log.info(e);
