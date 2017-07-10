@@ -5,16 +5,12 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
 
 import org.junit.Test;
 
 import eu.openminted.registry.domain.Component;
-import eu.openminted.registry.domain.ComponentInfo;
-import eu.openminted.registry.domain.IdentificationInfo;
 import eu.openminted.registry.domain.MetadataHeaderInfo;
 import eu.openminted.registry.domain.MetadataIdentifier;
-import eu.openminted.registry.domain.ResourceIdentifier;
 import eu.openminted.store.restclient.StoreRESTClient;
 import eu.openminted.workflow.api.ExecutionStatus;
 import eu.openminted.workflow.api.ExecutionStatus.Status;
