@@ -1,7 +1,6 @@
 package eu.openminted.workflow.service;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -31,16 +30,13 @@ import com.github.jmchilton.blend4j.galaxy.beans.Workflow;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowDetails;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputDefinition;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputs;
-import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInvokcationState;
+import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInvocation;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowOutputs;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowStepDefinition;
 import com.github.jmchilton.blend4j.galaxy.beans.collection.request.CollectionDescription;
 import com.github.jmchilton.blend4j.galaxy.beans.collection.request.HistoryDatasetElement;
-import com.github.jmchilton.blend4j.galaxy.beans.collection.response.CollectionElementResponse;
 import com.github.jmchilton.blend4j.galaxy.beans.collection.response.CollectionResponse;
 import com.google.common.collect.Lists;
-
-import eu.openminted.workflow.api.ExecutionStatus;
 
 /**
  * @author ilsp
@@ -106,7 +102,7 @@ public class Galaxy {
 
 		log.info("---");
 		//WorkflowOutputs workflowOutputs = run(workflowName, workflowID, collectionResponse, historyID);
-		WorkflowInvokcationState workflowOutputs = run(workflowName, workflowID, collectionResponse, historyID);
+		WorkflowInvocation workflowOutputs = run(workflowName, workflowID, collectionResponse, historyID);
 
 		log.info("waitJobs");
 		int count = countTools(workflowID);
@@ -130,9 +126,9 @@ public class Galaxy {
 		log.info("Downloaded");
 	}
 
-	private WorkflowInvokcationState run(String workflowName, String workflowID, CollectionResponse collectionResponse,
+	private WorkflowInvocation run(String workflowName, String workflowID, CollectionResponse collectionResponse,
 			String historyID) {
-		WorkflowInvokcationState output = null;
+		WorkflowInvocation output = null;
 
 		WorkflowInputs.InputSourceType inputSource = WorkflowInputs.InputSourceType.HDCA;
 		log.info(workflowName + "->" + workflowID);
@@ -165,9 +161,9 @@ public class Galaxy {
 		return output;
 	}
 	
-	private WorkflowInvokcationState invokeWorkflow(WorkflowInputs workflowInputs){
+	private WorkflowInvocation invokeWorkflow(WorkflowInputs workflowInputs){
 		log.info("invoke...workflow");
-		WorkflowInvokcationState output = workflowsClient.invokeWorkflow(workflowInputs);
+		WorkflowInvocation output = workflowsClient.invokeWorkflow(workflowInputs);
 		return output;
 	}
 	

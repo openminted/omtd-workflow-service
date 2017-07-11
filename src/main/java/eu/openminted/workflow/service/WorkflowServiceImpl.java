@@ -46,7 +46,7 @@ import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputs;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputs.ExistingHistory;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputs.InputSourceType;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputs.WorkflowInput;
-import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInvokcationState;
+import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInvocation;
 import com.google.common.base.Charsets;
 import com.google.common.collect.Lists;
 import com.google.common.io.Resources;
@@ -270,7 +270,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 							new WorkflowInput(id, InputSourceType.HDA));
 
 					// run the workflow and get a handle on the outputs produced
-					final WorkflowInvokcationState output = client.invokeWorkflow(inputs);
+					WorkflowInvocation output = client.invokeWorkflow(inputs);
 					System.out.println(output.getId()+"|"+output.getState());
 
 					// make sure the workflow has finished and the history is in
@@ -305,6 +305,9 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 					*/
 					
+					output = client.showInvocation(workflowID, output.getId());
+					System.out.println("After history is complete:" + output.getId()+"|"+output.getState()+"|"+output.getUUID()+"|"+output.getUpdateTime());
+					
 					List<HistoryContents> hc = historiesClient.showHistoryContents(historyId);
 					for (final HistoryContents element : hc) {
 						log.info(element.getId() + "|" + element.getName() + "|" + element.getHistoryContentType());
@@ -332,7 +335,10 @@ public class WorkflowServiceImpl implements WorkflowService {
 							System.out.println(outputFile.getAbsolutePath() + ": " + outputFile.length());
 						}
 						
-					}					
+					}
+					
+					output = client.showInvocation(workflowID, output.getId());
+					System.out.println("when we've finished:" + output.getId()+"|"+output.getState()+"|"+output.getUUID());
 				}
 
 				try {
@@ -352,6 +358,8 @@ public class WorkflowServiceImpl implements WorkflowService {
 					status.put(workflowExecutionId, new ExecutionStatus(e));
 					return;
 				}
+				
+				
 			}
 		};
 
