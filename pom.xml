@@ -46,9 +46,9 @@
 		</dependency>
 		<dependency>
 			<!-- this version supports invoke -->
-	    	<groupId>com.github.greenwoodma</groupId>
+			<groupId>com.github.greenwoodma</groupId>
 	    	<artifactId>blend4j</artifactId>
-	    	<version>571068f5bc</version>
+	    	<version>a18beed996</version>
 		</dependency>
 	</dependencies>
 

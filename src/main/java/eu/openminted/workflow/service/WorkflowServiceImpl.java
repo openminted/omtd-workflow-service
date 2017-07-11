@@ -42,11 +42,11 @@ import com.github.jmchilton.blend4j.galaxy.beans.ToolExecution;
 import com.github.jmchilton.blend4j.galaxy.beans.Workflow;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowDetails;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputDefinition;
-import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputs;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputs.ExistingHistory;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputs.InputSourceType;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputs.WorkflowInput;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInvocation;
+import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInvocationInputs;
 import com.google.common.base.Charsets;
 import com.google.common.collect.Lists;
 import com.google.common.io.Resources;
@@ -258,7 +258,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 					// create a new workflow input in the correct history and
 					// referencing the files we just uploaded as the inputs
-					final WorkflowInputs inputs = new WorkflowInputs();
+					final WorkflowInvocationInputs inputs = new WorkflowInvocationInputs();
 					inputs.setDestination(new ExistingHistory(historyId));
 					inputs.setWorkflowId(testWorkflowId);
 					//inputs.setInput(getWorkflowInputId(workflowDetails, "Input Dataset"),

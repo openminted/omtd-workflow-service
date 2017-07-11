@@ -31,6 +31,7 @@ import com.github.jmchilton.blend4j.galaxy.beans.WorkflowDetails;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputDefinition;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputs;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInvocation;
+import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInvocationInputs;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowOutputs;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowStepDefinition;
 import com.github.jmchilton.blend4j.galaxy.beans.collection.request.CollectionDescription;
@@ -139,7 +140,7 @@ public class Galaxy {
 		String workflowInputId = getWorkflowInputId(workflowDetails, "Input Dataset Collection");
 
 		log.info("Configuring input");
-		WorkflowInputs workflowInputs = new WorkflowInputs();
+		WorkflowInvocationInputs workflowInputs = new WorkflowInvocationInputs();
 		workflowInputs.setDestination(new WorkflowInputs.ExistingHistory(historyID));
 		workflowInputs.setWorkflowId(workflowID);
 		workflowInputs.setInput(workflowInputId,
@@ -161,7 +162,7 @@ public class Galaxy {
 		return output;
 	}
 	
-	private WorkflowInvocation invokeWorkflow(WorkflowInputs workflowInputs){
+	private WorkflowInvocation invokeWorkflow(WorkflowInvocationInputs workflowInputs){
 		log.info("invoke...workflow");
 		WorkflowInvocation output = workflowsClient.invokeWorkflow(workflowInputs);
 		return output;
