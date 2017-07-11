@@ -148,6 +148,9 @@ public class WorkflowServiceImpl implements WorkflowService {
 				String corpusId = workflowJob.getCorpusId();
 
 				final String historyId = createHistory(instance, "OpenMinTeD Registry Integration: " + (new Date()));
+				
+				System.out.println("History ID:" + historyId);
+				
 				final Map<String, String> ids = new HashMap<String, String>();
 
 				if (!corpusId.startsWith("file:")) {
@@ -258,7 +261,12 @@ public class WorkflowServiceImpl implements WorkflowService {
 					final WorkflowInputs inputs = new WorkflowInputs();
 					inputs.setDestination(new ExistingHistory(historyId));
 					inputs.setWorkflowId(testWorkflowId);
-					inputs.setInput(getWorkflowInputId(workflowDetails, "Input Dataset"),
+					//inputs.setInput(getWorkflowInputId(workflowDetails, "Input Dataset"),
+					//		new WorkflowInput(id, InputSourceType.HDA));
+					
+					System.out.println("Processing document ID: " +id);
+					
+					inputs.setInput("0",
 							new WorkflowInput(id, InputSourceType.HDA));
 
 					// run the workflow and get a handle on the outputs produced
@@ -297,7 +305,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 					*/
 					
-					List<HistoryContents> hc = historiesClient.showHistoryContents(output.getHistoryId());
+					List<HistoryContents> hc = historiesClient.showHistoryContents(historyId);
 					for (final HistoryContents element : hc) {
 						log.info(element.getId() + "|" + element.getName() + "|" + element.getHistoryContentType());
 
@@ -310,7 +318,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 						if (element.getHistoryContentType().equalsIgnoreCase("dataset")) {
 							log.info("Downloading dataset to " + outputFile.getAbsolutePath());
 							try {
-								historiesClient.downloadDataset(output.getHistoryId(), element.getId(), outputFile);
+								historiesClient.downloadDataset(historyId, element.getId(), outputFile);
 							} catch (IOException e) {
 								// if we can't download the file then we have a
 								// problem....

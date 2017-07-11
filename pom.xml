@@ -45,12 +45,11 @@
 			<version>0.0.1-SNAPSHOT</version>
 		</dependency>
 		<dependency>
-			<!-- this is the version that first provided support for invoke -->
-	    	<groupId>com.github.greenwoodma</groupId>
-	    	<artifactId>blend4j</artifactId>
-	    	<version>53991fd1b1</version>
-	</dependency>
-
+			<!-- this is the version that first provided working support for invoke -->
+			<groupId>com.github.greenwoodma</groupId>
+			<artifactId>blend4j</artifactId>
+			<version>8d0a5a2065</version>
+		</dependency>
 	</dependencies>
 
 	<repositories>
