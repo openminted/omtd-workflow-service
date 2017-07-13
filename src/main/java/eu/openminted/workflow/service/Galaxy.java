@@ -103,20 +103,25 @@ public class Galaxy {
 
 		log.info("---");
 		//WorkflowOutputs workflowOutputs = run(workflowName, workflowID, collectionResponse, historyID);
-		WorkflowInvocation workflowOutputs = run(workflowName, workflowID, collectionResponse, historyID);
+		WorkflowInvocation workflowInvocation = run(workflowName, workflowID, collectionResponse, historyID);
 
-		log.info("waitJobs");
+		String invocationID = workflowInvocation.getId();
+		log.info("invocationID for " + workflowID + " " + invocationID);
+		
+		log.info("count tools");
 		int count = countTools(workflowID);
 		log.info("tools counted:" + count);
 				
-		log.info("waitJobs");
+		log.info("waitUntilHistoryIsReady");
 		waitUntilHistoryIsReady(historyID);
 		
 		log.info("waitJobs");
-		waitJobs(historyID, count);
+		waitJobs(historyID, count, workflowInvocation.getWorkflowId(), invocationID);
 
+		waitBeforeStartDown();
+		
 		log.info("waitHistory:");
-		waitForHistory2(historyID);
+		waitAndMonitorHistory(historyID);
 
 		// Jobs for this history have been completed
 		// Also history is OK.
@@ -127,9 +132,14 @@ public class Galaxy {
 		log.info("Downloaded");
 	}
 
+	private void  waitBeforeStartDown() throws Exception{
+		log.info("waitBeforeStartDown");
+		Thread.currentThread().sleep(10000);
+	}
+	
 	private WorkflowInvocation run(String workflowName, String workflowID, CollectionResponse collectionResponse,
 			String historyID) {
-		WorkflowInvocation output = null;
+		WorkflowInvocation workflowInvocation = null;
 
 		WorkflowInputs.InputSourceType inputSource = WorkflowInputs.InputSourceType.HDCA;
 		log.info(workflowName + "->" + workflowID);
@@ -154,12 +164,12 @@ public class Galaxy {
 		
 		// output = workflowsClient.runWorkflow(workflowInputs);
 		// runWorkflowPy(workflowID, historyID, collectionResponse.getId());	
-		invokeWorkflow(workflowInputs);
+		workflowInvocation = invokeWorkflow(workflowInputs);
 		log.info("Workflow started");
 
 		// waitForHistory2(historyID);
 
-		return output;
+		return workflowInvocation;
 	}
 	
 	private WorkflowInvocation invokeWorkflow(WorkflowInvocationInputs workflowInputs){
@@ -190,7 +200,10 @@ public class Galaxy {
 		}
 	
 	}
-	
+
+	// ------
+	// https://github.com/CTMM-TraIT/trait_workflow_runner/blob/c2dffbfcfc18a258dac6229e06e56586dadb0990/src/main/java/nl/vumc/biomedbridges/galaxy/GalaxyWorkflowEngine.java
+		
 	private void waitUntilHistoryIsReady(final String historyId) throws InterruptedException{
 		boolean finished = false;
 		
@@ -212,9 +225,9 @@ public class Galaxy {
 	    log.info("History state IDs: {}.", historyDetails.getStateIds());
 	    return finished;
 	}
-    
+	// ------
 	
-	private void waitForHistory2(String historyID) {
+	private void waitAndMonitorHistory(String historyID) {
 		// make sure the workflow has finished and the history is in
 		// the "ok" state before proceeding any further
 		try {
@@ -233,9 +246,9 @@ public class Galaxy {
 		}
 	}
 
-	private void waitJobs(String historyID, int count) {
+	private void waitJobs(String historyID, int count, String workflowID, String invocationID) {
 
-		while (!jobsForHistoryAreCompleted(historyID, count)) {
+		while (!jobsForHistoryAreCompleted(historyID, count, workflowID, invocationID)) {
 
 			try {
 				log.info("Sleep");
@@ -246,12 +259,16 @@ public class Galaxy {
 		}
 	}
 
-	private boolean jobsForHistoryAreCompleted(String historyID, int count) {
+	private boolean jobsForHistoryAreCompleted(String historyID, int count,  String workflowID, String invocationID) {
 		boolean completed = true;
 		
 		List<Job> jobs = jobsClient.getJobsForHistory(historyID);
 		log.info("Jobs for history" + historyID + " are " + jobs.size());
 
+		log.info("workflowInvocation" + invocationID);
+		WorkflowInvocation wi = workflowsClient.showInvocation(workflowID, invocationID);
+		log.info("workflowInvocation" + wi.getState() + " " + wi.getUpdateTime());
+		
 		int toolsCount = 0;
 		for (Job job : jobs) {
 
@@ -286,6 +303,7 @@ public class Galaxy {
 		}
 
 		return completed && (toolsCount == count);
+		//&& wi.getState().equalsIgnoreCase("ready");
 	}
 
 	private CollectionResponse constructFileCollectionList(String historyId, List<String> inputIds, List<File> files) {
@@ -543,9 +561,6 @@ public class Galaxy {
 		}	
 	}
 	
-
-
-
 	private String jobToString(Job job) {
 		String ret = "job[ " + "state:" + job.getState() + ", " + "toolID:" + job.getToolId() + ", " + "created:"
 				+ job.getCreated() + ", " + "updated:" + job.getUpdated() + ", " + "]";
