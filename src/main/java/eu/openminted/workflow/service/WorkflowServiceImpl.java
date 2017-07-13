@@ -304,8 +304,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					}
 
 					*/
-					
-					output = client.showInvocation(workflowID, output.getId());
+					output = client.showInvocation(testWorkflowId, output.getId());
 					System.out.println("After history is complete:" + output.getId()+"|"+output.getState()+"|"+output.getUUID()+"|"+output.getUpdateTime());
 					
 					List<HistoryContents> hc = historiesClient.showHistoryContents(historyId);
@@ -337,7 +336,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 						
 					}
 					
-					output = client.showInvocation(workflowID, output.getId());
+					output = client.showInvocation(testWorkflowId, output.getId());
 					System.out.println("when we've finished:" + output.getId()+"|"+output.getState()+"|"+output.getUUID());
 				}
 
