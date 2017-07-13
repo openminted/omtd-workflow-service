@@ -112,17 +112,17 @@ public class Galaxy {
 		int count = countTools(workflowID);
 		log.info("tools counted:" + count);
 				
-		log.info("waitUntilHistoryIsReady");
-		waitUntilHistoryIsReady(historyID);
+		//log.info("waitUntilHistoryIsReady");
+		//waitUntilHistoryIsReady(historyID);
 		
 		log.info("waitJobs");
 		waitJobs(historyID, count, workflowInvocation.getWorkflowId(), invocationID);
 
-		waitBeforeStartDown();
-		
 		log.info("waitHistory:");
 		waitAndMonitorHistory(historyID);
 
+		waitBeforeStartDown();
+		
 		// Jobs for this history have been completed
 		// Also history is OK.
 		// So, start downloading
@@ -381,6 +381,20 @@ public class Galaxy {
 	 * + state; throw new RuntimeException(message); } Thread.sleep(200L); }
 	 */
 
+	private boolean allHistoryContentAreOK(String historyId){
+	int all = 0;
+	int Ok = 0;
+		for (HistoryContents content : historiesClient.showHistoryContents(historyId)) {
+			all++;
+			if (!content.getState().equals("ok")) {
+				Ok++;
+			}
+		}
+		
+		return (all == Ok);
+	}
+
+	
 	private void waitForHistory(final String historyId) throws InterruptedException {
 
 		// a placeholder for the current details of the history
@@ -397,6 +411,17 @@ public class Galaxy {
 			Thread.sleep(200L);
 		}
 
+		/*
+		while (true) {
+			boolean allOK = allHistoryContentAreOK(historyId);
+			if (allOK) {
+				break;
+			}
+
+			// don't hammer the galaxy instance to heavily
+			Thread.sleep(200L);
+		}*/
+		
 		// get the state of the history
 		final String state = details.getState();
 		Thread.sleep(200L);
@@ -532,6 +557,7 @@ public class Galaxy {
 					log.info("Downloading dataset to " + outputFile.getAbsolutePath());
 					historiesClient.downloadDataset(historyID, element.getId(), outputFile);
 				}
+				
 
 				/*
 				 * if("Produce XML files".equalsIgnoreCase(element.getName())){
