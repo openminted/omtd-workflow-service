@@ -456,18 +456,39 @@ public class Galaxy {
 		
 		//wait for all steps to have been added to the invocation
 		while (true) {
-			invocation = workflowsClient.showInvocation(workflowId, invocationId);
-			if (invocation.getWorkflowSteps().size() == stepCount) {
-				break;
+			
+			try{
+				invocation = workflowsClient.showInvocation(workflowId, invocationId);
+				
+				if(invocation == null){
+					log.info("invocation is null..returning");
+					return;
+				}
+				
+				if (invocation.getWorkflowSteps().size() == stepCount) {
+					break;
+				}
+			}catch(Exception e){
+				log.info(e.getMessage());
 			}
 			
 			Thread.sleep(200);
 		}
 		
 		while (true) {
-			invocation = workflowsClient.showInvocation(workflowId, invocationId);
-			if (invocation.getWorkflowSteps().get(stepCount-1).getState().equals("ok")) {
-				break;
+			try{
+				invocation = workflowsClient.showInvocation(workflowId, invocationId);
+				
+				if(invocation == null){
+					log.info("invocation is null..returning");
+					return;
+				}
+				
+				if (invocation.getWorkflowSteps().get(stepCount-1).getState().equals("ok")) {
+					break;
+				}
+			}catch(Exception e){
+				log.info(e.getMessage());
 			}
 			
 			Thread.sleep(200);
