@@ -485,6 +485,7 @@ public class Galaxy {
 					return;
 				}
 				
+				log.info("workflow steps size:" + invocation.getWorkflowSteps().size());
 				if (invocation.getWorkflowSteps().get(stepCount-1).getState().equals("ok")) {
 					break;
 				}
