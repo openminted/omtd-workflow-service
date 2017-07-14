@@ -109,19 +109,21 @@ public class Galaxy {
 		log.info("invocationID for " + workflowID + " " + invocationID);
 		
 		log.info("count tools");
-		int count = countTools(workflowID);
+		//int count = countTools(workflowID);
+		int count = workflowsClient.showWorkflow(workflowID).getSteps().size();
 		log.info("tools counted:" + count);
 				
 		//log.info("waitUntilHistoryIsReady");
 		//waitUntilHistoryIsReady(historyID);
 		
 		log.info("waitJobs");
-		waitJobs(historyID, count, workflowInvocation.getWorkflowId(), invocationID);
+		//waitJobs(historyID, count, workflowInvocation.getWorkflowId(), invocationID);
+		waitForInvocation(workflowID, invocationID, count);
 
 		log.info("waitHistory:");
 		waitAndMonitorHistory(historyID);
 
-		waitBeforeStartDown();
+		//waitBeforeStartDown();
 		
 		// Jobs for this history have been completed
 		// Also history is OK.
@@ -446,6 +448,30 @@ public class Galaxy {
 		// state of the entire history
 		throw new RuntimeException("History no longer running, but not in 'ok' state. State is - " + state);
 
+	}
+	
+	public void waitForInvocation(String workflowId, String invocationId, int stepCount) throws InterruptedException {
+		
+		WorkflowInvocation invocation = null;
+		
+		//wait for all steps to have been added to the invocation
+		while (true) {
+			invocation = workflowsClient.showInvocation(workflowId, invocationId);
+			if (invocation.getWorkflowSteps().size() == stepCount) {
+				break;
+			}
+			
+			Thread.sleep(200);
+		}
+		
+		while (true) {
+			invocation = workflowsClient.showInvocation(workflowId, invocationId);
+			if (invocation.getWorkflowSteps().get(stepCount-1).getState().equals("ok")) {
+				break;
+			}
+			
+			Thread.sleep(200);
+		}
 	}
 
 	private String getWorkflowInputId(WorkflowDetails workflowDetails, String inputLabel) {

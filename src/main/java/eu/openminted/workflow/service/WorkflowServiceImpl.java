@@ -273,6 +273,16 @@ public class WorkflowServiceImpl implements WorkflowService {
 					WorkflowInvocation output = client.invokeWorkflow(inputs);
 					System.out.println(output.getId()+"|"+output.getState());
 
+					try {
+						waitForInvocation(client, testWorkflowId, output.getId(), workflowDetails.getSteps().size());
+
+					} catch (InterruptedException e) {
+						// hmmmm that will mess things up
+						log.error("Interrupted waiting for workflow invocation to complete", e);
+						status.put(workflowExecutionId, new ExecutionStatus(e));
+						return;
+					}
+
 					// make sure the workflow has finished and the history is in
 					// the "ok" state before proceeding any further
 					try {
@@ -304,8 +314,22 @@ public class WorkflowServiceImpl implements WorkflowService {
 					}
 
 					*/
-					output = client.showInvocation(testWorkflowId, output.getId());
-					System.out.println("After history is complete:" + output.getId()+"|"+output.getState()+"|"+output.getUUID()+"|"+output.getUpdateTime());
+					/*output = client.showInvocation(testWorkflowId, output.getId());
+					while (output.getWorkflowSteps().size() < 3) {
+						System.out.println("waiting for step details:" + output.getId()+"|"+output.getState()+"|"+output.getUUID()+"|"+output.getUpdateTime()+"|"+output.getWorkflowSteps().size());
+						try {
+							Thread.sleep(500);
+						} catch (InterruptedException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+						output = client.showInvocation(testWorkflowId, output.getId());
+					}
+					System.out.println("After history is complete:" + output.getId()+"|"+output.getState()+"|"+output.getUUID()+"|"+output.getUpdateTime()+"|"+output.getWorkflowSteps().size());
+					
+					for (WorkflowInvocation.Step step : output.getWorkflowSteps()) {
+						System.out.println("step "+step.getState()+"|"+step.getUUID());
+					}*/
 					
 					List<HistoryContents> hc = historiesClient.showHistoryContents(historyId);
 					for (final HistoryContents element : hc) {
@@ -336,8 +360,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 						
 					}
 					
-					output = client.showInvocation(testWorkflowId, output.getId());
-					System.out.println("when we've finished:" + output.getId()+"|"+output.getState()+"|"+output.getUUID());
+					
 				}
 
 				try {
@@ -486,6 +509,30 @@ public class WorkflowServiceImpl implements WorkflowService {
 		return ids;
 	}
 
+	static void waitForInvocation(final WorkflowsClient client, String workflowId, String invocationId, int stepCount) throws InterruptedException {
+		
+		WorkflowInvocation invocation = null;
+		
+		//wait for all steps to have been added to the invocation
+		while (true) {
+			invocation = client.showInvocation(workflowId, invocationId);
+			if (invocation.getWorkflowSteps().size() == stepCount) {
+				break;
+			}
+			
+			Thread.sleep(200);
+		}
+		
+		while (true) {
+			invocation = client.showInvocation(workflowId, invocationId);
+			if (invocation.getWorkflowSteps().get(stepCount-1).getState().equals("ok")) {
+				break;
+			}
+			
+			Thread.sleep(200);
+		}
+	}
+	
 	/**
 	 * Many operations that modify the history don't complete instantly so we
 	 * need to wait until the history is in a known ready stste. This method
