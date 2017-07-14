@@ -2,6 +2,7 @@ package eu.openminted.workflow.service;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -198,22 +199,24 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 						return;
 					}
 				} else {
-					/*
+					
 					try {
 						final File inputDir = toFile(new URL(corpusId));
 
 						for (File f : inputDir.listFiles()) {
-							OutputDataset dataset = upload(instance, historyId, f);
-							ids.put(dataset.getId(), f.getName());
+							OutputDataset dataset = galaxy.uploadFileToHistory(historyId, f);
+							ids.add(dataset.getId());
+							
+							filesList.add(f);
 						}
 
-						waitForHistory(instance.getHistoriesClient(), historyId);
+						galaxy.waitForHistory(historyId);
 
 					} catch (InterruptedException | MalformedURLException e) {
 						log.error("Unable to upload corpus to Galaxy history", e);
 						status.put(workflowExecutionId, new ExecutionStatus(e));
 						return;
-					}*/
+					}
 				}
 
 				Path outputDir = null;
@@ -232,6 +235,7 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 					galaxy.setScriptsPath(galaxyScriptsPath);
 					galaxy.runWorkflow(workflowID, testWorkflowId, historyId, ids, filesList, outputDir.toFile().getAbsolutePath() + "/");	
 				}catch(Exception e){
+					e.printStackTrace();
 					log.info(e);
 					error = true;
 				}	

@@ -99,6 +99,8 @@ public class Galaxy {
 	public void runWorkflow(String workflowName, String workflowID, String historyID, List<String> inputIds,
 			ArrayList<File> filesList, String outputPAth) throws Exception {
 
+		log.info("using history "+historyID);
+		
 		CollectionResponse collectionResponse = constructFileCollectionList(historyID, inputIds, filesList);
 		log.info("Created file collection");
 
@@ -398,7 +400,7 @@ public class Galaxy {
 	}
 
 	
-	private void waitForHistory(final String historyId) throws InterruptedException {
+	public void waitForHistory(final String historyId) throws InterruptedException {
 
 		// a placeholder for the current details of the history
 		HistoryDetails details = null;
@@ -426,15 +428,27 @@ public class Galaxy {
 		}*/
 		
 		// get the state of the history
-		final String state = details.getState();
-		Thread.sleep(200L);
-
+		
+		
 		// if the history is in an ok state then we can return
-		if (state.equals("ok"))
-			return;
+		String state = null;
+		while (true) {
+			details = historiesClient.showHistory(historyId);
+			state = details.getState();
+			if (state.equals("ok")) {
+				System.out.println(details.getStateIds());
+				return;
+			}				
+			else {
+				System.out.println("History state: " + state);
+			}
 
+			Thread.sleep(1000L);
+
+		}
+/*
 		for (HistoryContents content : historiesClient.showHistoryContents(historyId)) {
-			if (!content.getState().equals("ok")) {
+			if (content != null && content.getState() != null && !content.getState().equals("ok")) {
 				// if one of the history contents is in a failed state throw the
 				// associated error
 				HistoryContentsProvenance provenance = historiesClient.showProvenance(historyId, content.getId());
@@ -447,7 +461,7 @@ public class Galaxy {
 
 		// throw a slightly more generic error message simply reporting the
 		// state of the entire history
-		throw new RuntimeException("History no longer running, but not in 'ok' state. State is - " + state);
+		throw new RuntimeException("History no longer running, but not in 'ok' state. State is - " + state);*/
 
 	}
 	
@@ -490,11 +504,25 @@ public class Galaxy {
 				Step step = invocation.getWorkflowSteps().get(stepCount-1);
 				
 				if(step!= null){
-					log.info("Step state:" + step.getState());					
+					log.info("Step state:" + step.getState());
+					String jobId = step.getJobId();
+					
+					JobDetails jobDetails = jobsClient.showJob(jobId);
+					log.info("JOB DETAILS: "+jobDetails.getState()+"|"+jobDetails.getExitCode());
 				}
 				
 				if (step!= null && step.getState()!= null && step.getState().equals("ok")) {
-					break;
+					
+					while (true) {
+						String jobId = step.getJobId();
+						JobDetails jobDetails = jobsClient.showJob(jobId);
+						log.info("JOB DETAILS: "+jobDetails.getState()+"|"+jobDetails.getExitCode());
+						
+						if (jobDetails.getState().equals("ok") && jobDetails.getExitCode() != null)
+							return;
+						
+					}
+					
 				}
 			}catch(Exception e){
 				e.printStackTrace();
