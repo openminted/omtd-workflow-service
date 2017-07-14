@@ -469,6 +469,7 @@ public class Galaxy {
 					break;
 				}
 			}catch(Exception e){
+				e.printStackTrace();
 				log.info(e.getMessage());
 			}
 			
@@ -488,6 +489,7 @@ public class Galaxy {
 					break;
 				}
 			}catch(Exception e){
+				e.printStackTrace();
 				log.info(e.getMessage());
 			}
 			
