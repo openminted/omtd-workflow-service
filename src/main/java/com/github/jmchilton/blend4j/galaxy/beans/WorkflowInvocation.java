@@ -1,5 +1,6 @@
 package com.github.jmchilton.blend4j.galaxy.beans;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -76,12 +77,15 @@ public class WorkflowInvocation {
 	}
 	
 	@JsonProperty("steps")
-	public void setWorkflowSteps(List<Step> steps) {
+	public void setWorkflowSteps(List<Step> steps) {		
 		this.steps = steps;
+		Collections.sort(steps);
 	}
 	
+	
+	
 	@JsonIgnoreProperties(ignoreUnknown = true)
-	public static class Step {
+	public static class Step implements Comparable<Step> {
 		String state, updateTime, jobId, id, label;
 		
 		int orderIndex;
@@ -150,6 +154,11 @@ public class WorkflowInvocation {
 		@JsonProperty("order_index")
 		public void setOrderIndex(int orderIndex) {
 			this.orderIndex = orderIndex;
+		}
+
+		@Override
+		public int compareTo(Step other) {
+			return orderIndex - other.orderIndex;
 		}
 	}
 }
