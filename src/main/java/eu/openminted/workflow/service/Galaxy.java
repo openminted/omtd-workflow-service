@@ -31,6 +31,7 @@ import com.github.jmchilton.blend4j.galaxy.beans.WorkflowDetails;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputDefinition;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputs;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInvocation;
+import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInvocation.Step;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInvocationInputs;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowOutputs;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowStepDefinition;
@@ -486,7 +487,8 @@ public class Galaxy {
 				}
 				
 				log.info("workflow steps size:" + invocation.getWorkflowSteps().size());
-				if (invocation.getWorkflowSteps().get(stepCount-1).getState().equals("ok")) {
+				Step step = invocation.getWorkflowSteps().get(stepCount-1);
+				if (step!= null && step.getState().equals("ok")) {
 					break;
 				}
 			}catch(Exception e){
