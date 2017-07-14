@@ -20,7 +20,7 @@ public class WorkflowServiceImpl2Test extends TestCase {
 		workflowService.galaxyInstanceUrl = "http://snf-754063.vm.okeanos.grnet.gr/";
 		workflowService.galaxyApiKey = "36ea7fa29c38b9144dded51957b22ddb";
 
-		String executionID = startWorkflow(workflowService, "MAGDatacite", "/input/PDFs/");
+		String executionID = startWorkflow(workflowService, "DGTest1", "/input/PDFs/");
 
 		ExecutionStatus status = null;
 
