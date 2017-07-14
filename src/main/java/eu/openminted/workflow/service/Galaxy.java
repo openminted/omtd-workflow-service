@@ -488,6 +488,11 @@ public class Galaxy {
 				
 				log.info("workflow steps size:" + invocation.getWorkflowSteps().size());
 				Step step = invocation.getWorkflowSteps().get(stepCount-1);
+				
+				if(step!= null){
+					log.info("Step state:" + step.getState());					
+				}
+				
 				if (step!= null && step.getState()!= null && step.getState().equals("ok")) {
 					break;
 				}
