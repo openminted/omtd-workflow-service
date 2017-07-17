@@ -2,6 +2,7 @@ package com.github.jmchilton.blend4j.galaxy;
 
 import java.util.List;
 
+import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInvocationStep;
 import com.github.jmchilton.blend4j.galaxy.beans.Workflow;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowDetails;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputs;
@@ -32,6 +33,8 @@ public interface WorkflowsClient {
   WorkflowInvocation invokeWorkflow(WorkflowInvocationInputs workflowInputs);
   
   WorkflowInvocation showInvocation(String workflowId, String invocationId);
+  
+  WorkflowInvocationStep showInvocationStep(String workflowId, String invocationId, String stepId);
   
   /**
    * Deletes the workflow with the given id (this is irreversible). This will

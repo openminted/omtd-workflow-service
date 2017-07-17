@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.codehaus.jackson.type.TypeReference;
 
+import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInvocationStep;
 import com.github.jmchilton.blend4j.galaxy.beans.Workflow;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowDetails;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputs;
@@ -59,6 +60,11 @@ class WorkflowsClientImpl extends Client implements WorkflowsClient {
 	  ///GET to api/workflows/{workflow_id}/invocations/{invocation_id}
 	  WebResource webResource = getWebResource().path(workflowId).path("invocations").path(invocationId);
 	  return super.getResponse(webResource).getEntity(WorkflowInvocation.class);
+  }
+  
+  public WorkflowInvocationStep showInvocationStep(String workflowId, String invocationId, String stepId) {
+	  WebResource webResource = getWebResource().path(workflowId).path("invocations").path(invocationId).path("steps").path(stepId);
+	  return super.getResponse(webResource).getEntity(WorkflowInvocationStep.class);
   }
 
   public ClientResponse importWorkflowResponse(final String json) {

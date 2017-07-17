@@ -17,9 +17,9 @@ import com.github.jmchilton.blend4j.galaxy.HistoriesClient;
 import com.github.jmchilton.blend4j.galaxy.JobsClient;
 import com.github.jmchilton.blend4j.galaxy.ToolsClient;
 import com.github.jmchilton.blend4j.galaxy.WorkflowsClient;
+import com.github.jmchilton.blend4j.galaxy.beans.Dataset;
 import com.github.jmchilton.blend4j.galaxy.beans.History;
 import com.github.jmchilton.blend4j.galaxy.beans.HistoryContents;
-import com.github.jmchilton.blend4j.galaxy.beans.HistoryContentsProvenance;
 import com.github.jmchilton.blend4j.galaxy.beans.HistoryDetails;
 import com.github.jmchilton.blend4j.galaxy.beans.Job;
 import com.github.jmchilton.blend4j.galaxy.beans.JobDetails;
@@ -31,8 +31,9 @@ import com.github.jmchilton.blend4j.galaxy.beans.WorkflowDetails;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputDefinition;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInputs;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInvocation;
-import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInvocation.Step;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInvocationInputs;
+import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInvocationStep;
+import com.github.jmchilton.blend4j.galaxy.beans.WorkflowInvocationStepOutput;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowOutputs;
 import com.github.jmchilton.blend4j.galaxy.beans.WorkflowStepDefinition;
 import com.github.jmchilton.blend4j.galaxy.beans.collection.request.CollectionDescription;
@@ -97,7 +98,7 @@ public class Galaxy {
 	}
 
 	public void runWorkflow(String workflowName, String workflowID, String historyID, List<String> inputIds,
-			ArrayList<File> filesList, String outputPAth) throws Exception {
+			ArrayList<File> filesList, String outputPath) throws Exception {
 
 		log.info("using history "+historyID);
 		
@@ -121,7 +122,7 @@ public class Galaxy {
 		
 		log.info("waitJobs");
 		//waitJobs(historyID, count, workflowInvocation.getWorkflowId(), invocationID);
-		waitForInvocation(workflowID, invocationID, count);
+		Map<String, WorkflowInvocationStepOutput> outputs = waitForInvocation(workflowID, invocationID, count);
 
 		log.info("waitHistory:");
 		waitAndMonitorHistory(historyID);
@@ -133,7 +134,8 @@ public class Galaxy {
 		// So, start downloading
 		log.info("Starting download");
 		//download(workflowOutputs, outputPAth);
-		downloadHistoryContents(historyID, outputPAth);
+		//downloadHistoryContents(historyID, outputPAth);
+		downloadWorkflowOutputs(historyID, outputs, outputPath);
 		log.info("Downloaded");
 	}
 
@@ -465,7 +467,7 @@ public class Galaxy {
 
 	}
 	
-	public void waitForInvocation(String workflowId, String invocationId, int stepCount) throws InterruptedException {
+	public Map<String,WorkflowInvocationStepOutput> waitForInvocation(String workflowId, String invocationId, int stepCount) throws InterruptedException {
 		
 		WorkflowInvocation invocation = null;
 		
@@ -477,7 +479,8 @@ public class Galaxy {
 				
 				if(invocation == null){
 					log.info("invocation is null..returning");
-					return;
+					//TODO should probably be an exception instead
+					return null;
 				}
 				
 				if (invocation.getWorkflowSteps().size() == stepCount) {
@@ -497,11 +500,11 @@ public class Galaxy {
 				
 				if(invocation == null){
 					log.info("invocation is null..returning");
-					return;
+					return null;
 				}
 				
 				log.info("workflow steps size:" + invocation.getWorkflowSteps().size());
-				Step step = invocation.getWorkflowSteps().get(stepCount-1);
+				WorkflowInvocationStep step = invocation.getWorkflowSteps().get(stepCount-1);
 				
 				if(step!= null){
 					log.info("Step state:" + step.getState());
@@ -518,8 +521,15 @@ public class Galaxy {
 						JobDetails jobDetails = jobsClient.showJob(jobId);
 						log.info("JOB DETAILS: "+jobDetails.getState()+"|"+jobDetails.getExitCode());
 						
-						if (jobDetails.getState().equals("ok") && jobDetails.getExitCode() != null)
-							return;
+						if (jobDetails.getState().equals("ok") && jobDetails.getExitCode() != null) {
+							
+							while (true) {
+								step = workflowsClient.showInvocationStep(workflowId, invocationId, step.getId());
+								System.out.println("Step outputs: "+step.getOutputs());
+								if (step.getOutputs() != null && step.getOutputs().size() > 0)
+									return step.getOutputs();							
+							}
+						}
 						
 					}
 					
@@ -621,6 +631,39 @@ public class Galaxy {
 		}
 		
 		downloadHistoryContents(output.getHistoryId(), path);
+	}
+	
+	private void downloadWorkflowOutputs(String historyId, Map<String,WorkflowInvocationStepOutput> outputs, String path){
+		
+		// download this output into the local file
+		try {
+
+			for (Map.Entry<String, WorkflowInvocationStepOutput> output : outputs.entrySet()) {
+
+				
+				
+				//List<HistoryContents> hc = historiesClient.showHistoryContents(historyID);
+			//for (final HistoryContents element : hc) {
+				log.info(output.getKey()+"|"+output.getValue().getType()+"|"+output.getValue().getId());
+				//log.info(element.getId() + "|" + element.getName() + "|" + element.getHistoryContentType());
+				if (output.getValue().getType().equals(WorkflowInputs.InputSourceType.HDA)) {
+					Dataset dataset = historiesClient.showDataset(historyId, output.getValue().getId());
+					File f = new File(path);
+					if (!f.exists()) {
+						f.mkdirs();
+					}
+					File outputFile = new File(path + dataset.getName());
+					log.info("downloading "+dataset.getName()+" to " +outputFile.getAbsolutePath());
+					historiesClient.downloadDataset(historyId, output.getValue().getId(), outputFile);				}
+			}
+
+		} catch (Exception e) {
+			// if we can't download the file then we have a
+			// problem....
+			log.info("Unable to download result from Galaxy history", e);
+			// status.put(workflowExecutionId, new ExecutionStatus(e));
+			// return;
+		}	
 	}
 
 	private void downloadHistoryContents(String historyID, String path){
