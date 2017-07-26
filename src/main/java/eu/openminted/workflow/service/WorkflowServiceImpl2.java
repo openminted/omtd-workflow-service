@@ -24,6 +24,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.stereotype.Component;
@@ -31,6 +32,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 
 import com.github.jmchilton.blend4j.galaxy.beans.OutputDataset;
 
+import eu.openminted.registry.core.jms.service.JMSService;
 import eu.openminted.store.common.StoreResponse;
 import eu.openminted.store.restclient.StoreRESTClient;
 import eu.openminted.workflow.api.ExecutionStatus;
@@ -39,16 +41,18 @@ import eu.openminted.workflow.api.WorkflowException;
 import eu.openminted.workflow.api.WorkflowJob;
 import eu.openminted.workflow.api.WorkflowService;
 
-//@RestController
-//@EnableAutoConfiguration
 @Component
 public class WorkflowServiceImpl2 implements WorkflowService {
 
-	private Galaxy galaxy;
 	private static Logger log = Logger.getLogger(WorkflowServiceImpl2.class);
+	
+	private Galaxy galaxy;	
 
 	private static Map<String, ExecutionStatus> status = new HashMap<String, ExecutionStatus>();
-
+	
+	@Autowired
+	JMSService OMTDJMSService;
+		
 	// these should probably both be set via injection
 	@Value("${galaxy.url}")
 	String galaxyInstanceUrl;
@@ -71,10 +75,6 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 		log.info(WorkflowServiceImpl2.class.getName());
 	}
 	
-	public static void main(String[] args) throws Exception {
-		SpringApplication.run(WorkflowServiceImpl2.class, args);
-	}
-
 	@SuppressWarnings("unused")
 	@Override
 	public String execute(WorkflowJob workflowJob) throws WorkflowException {
@@ -368,4 +368,11 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 
 		return archiveID;
 	}
+
+	// --- 
+	// ---
+	public static void main(String[] args) throws Exception {
+		SpringApplication.run(WorkflowServiceImpl2.class, args);
+	}
+
 }
