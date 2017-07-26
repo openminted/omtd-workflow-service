@@ -32,7 +32,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 
 import com.github.jmchilton.blend4j.galaxy.beans.OutputDataset;
 
-import eu.openminted.registry.core.jms.service.JMSService;
+import eu.openminted.messageservice.connector.MessageServiceConnector;
 import eu.openminted.store.common.StoreResponse;
 import eu.openminted.store.restclient.StoreRESTClient;
 import eu.openminted.workflow.api.ExecutionStatus;
@@ -51,7 +51,7 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 	private static Map<String, ExecutionStatus> status = new HashMap<String, ExecutionStatus>();
 	
 	@Autowired
-	JMSService OMTDJMSService;
+	MessageServiceConnector OMTDJMSService;
 		
 	// these should probably both be set via injection
 	@Value("${galaxy.url}")

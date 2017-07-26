@@ -42,8 +42,8 @@
 
 		<dependency>			
 			<groupId>eu.openminted</groupId>
-			<artifactId>registry-core</artifactId>
-			<version>1.1.0</version>
+			<artifactId>omtd-message-service-connector</artifactId>
+			<version>0.0.1-SNAPSHOT</version>
 		</dependency>
 		
 		
