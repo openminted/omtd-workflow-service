@@ -76,9 +76,7 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 	}
 
 	public WorkflowServiceImpl2(){
-		log.info("Implementation" + WorkflowServiceImpl2.class.getName());
-		log.info("galaxyInstanceUrl:" + galaxyInstanceUrl);
-		
+		log.info("Implementation:" + WorkflowServiceImpl2.class.getName());
 	}
 	
 	@SuppressWarnings("unused")
@@ -303,8 +301,10 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 	}
 
 	private void initConnectionToGalaxy(){
-		galaxy = new Galaxy(galaxyInstanceUrl, galaxyApiKey);
-		log.info("Connected to Galaxy");	
+		if(galaxy == null){
+			galaxy = new Galaxy(galaxyInstanceUrl, galaxyApiKey);
+			log.info("Connected to Galaxy");	
+		}
 	}
 	
 	private void updateStatus(ExecutionStatus executionStatus, String workflowExecutionId, String topic){		
