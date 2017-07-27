@@ -23,7 +23,9 @@ import java.util.UUID;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
@@ -33,6 +35,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import com.github.jmchilton.blend4j.galaxy.beans.OutputDataset;
 
 import eu.openminted.messageservice.connector.MessageServiceConnector;
+import eu.openminted.messageservice.connector.TopicsRegistry;
 import eu.openminted.store.common.StoreResponse;
 import eu.openminted.store.restclient.StoreRESTClient;
 import eu.openminted.workflow.api.ExecutionStatus;
@@ -44,14 +47,15 @@ import eu.openminted.workflow.api.WorkflowService;
 @Component
 public class WorkflowServiceImpl2 implements WorkflowService {
 
-	private static Logger log = Logger.getLogger(WorkflowServiceImpl2.class);
+	private static final Logger log = LoggerFactory.getLogger(WorkflowServiceImpl2.class);
+	//private static Logger log = Logger.getLogger(WorkflowServiceImpl2.class);
 	
 	private Galaxy galaxy;	
 
-	private static Map<String, ExecutionStatus> status = new HashMap<String, ExecutionStatus>();
+	private static Map<String, ExecutionStatus> statusMonitor = new HashMap<String, ExecutionStatus>();
 	
 	@Autowired
-	MessageServiceConnector OMTDJMSService;
+	MessageServiceConnector messageServiceConnector;
 		
 	// these should probably both be set via injection
 	@Value("${galaxy.url}")
@@ -72,7 +76,9 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 	}
 
 	public WorkflowServiceImpl2(){
-		log.info(WorkflowServiceImpl2.class.getName());
+		log.info("Implementation" + WorkflowServiceImpl2.class.getName());
+		log.info("galaxyInstanceUrl:" + galaxyInstanceUrl);
+		
 	}
 	
 	@SuppressWarnings("unused")
@@ -80,11 +86,13 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 	public String execute(WorkflowJob workflowJob) throws WorkflowException {
 		
 		log.info("execute started");		
-		galaxy = new Galaxy(galaxyInstanceUrl, galaxyApiKey);
-		log.info("connected to Galaxy");
+		
+		initConnectionToGalaxy();
 		
 		final String workflowExecutionId = UUID.randomUUID().toString();
-		status.put(workflowExecutionId, new ExecutionStatus(Status.PENDING));
+		
+		updateStatus(new ExecutionStatus(Status.PENDING), workflowExecutionId, TopicsRegistry.workflowsExecution);
+		//statusMonitor.put(workflowExecutionId, new ExecutionStatus(Status.PENDING));
 
 		log.info("Starting workflow execution " + workflowExecutionId + " using Galaxy instance at "
 				+ galaxyInstanceUrl);
@@ -97,7 +105,8 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 				//	//return;					
 				//}
 
-				status.put(workflowExecutionId, new ExecutionStatus(Status.RUNNING));
+				updateStatus(new ExecutionStatus(Status.RUNNING), workflowExecutionId, TopicsRegistry.workflowsExecution);
+				//statusMonitor.put(workflowExecutionId, new ExecutionStatus(Status.RUNNING));
 
 				StoreRESTClient storeClient = new StoreRESTClient(storeEndpoint);
 
@@ -113,16 +122,18 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 
 				// make sure we have the workflow we want to run and get it's
 				// details
-				final String testWorkflowId = galaxy.ensureHasWorkflow(workflowID);
+				final String workflowIDInGalaxy = galaxy.ensureHasWorkflow(workflowID);
 
-				if (testWorkflowId == null) {
+				if (workflowIDInGalaxy == null) {
 					log.info("Unable to locate workflow: " + workflowID);
-					status.put(workflowExecutionId,
-							new ExecutionStatus(new WorkflowException("Unable to locate named workflow")));
+					
+					updateStatus(new ExecutionStatus(new WorkflowException("Unable to locate named workflow")), workflowExecutionId, TopicsRegistry.workflowsExecution);
+					//statusMonitor.put(workflowExecutionId,
+					//		new ExecutionStatus(new WorkflowException("Unable to locate named workflow")));
 					return;
 				}
 
-				log.info("Workflow ID: " + testWorkflowId);
+				log.info("Workflow ID: " + workflowIDInGalaxy);
 
 				/**
 				 * download the corpus from the OMTD-STORE using the REST
@@ -153,7 +164,9 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 						
 					} catch (IOException e) {
 						log.info("Unable to retrieve specified corpus with ID " + corpusId, e);
-						status.put(workflowExecutionId, new ExecutionStatus(e));
+						
+						updateStatus(new ExecutionStatus(e), workflowExecutionId, TopicsRegistry.workflowsExecution);						
+						//statusMonitor.put(workflowExecutionId, new ExecutionStatus(e));
 						return;
 					}
 
@@ -195,7 +208,9 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 
 					} catch (IOException | URISyntaxException e) {
 						log.error("Unable to upload corpus to Galaxy history", e);
-						status.put(workflowExecutionId, new ExecutionStatus(e));
+						
+						updateStatus(new ExecutionStatus(e), workflowExecutionId, TopicsRegistry.workflowsExecution);
+						//statusMonitor.put(workflowExecutionId, new ExecutionStatus(e));
 						return;
 					}
 				} else {
@@ -214,7 +229,9 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 
 					} catch (InterruptedException | MalformedURLException e) {
 						log.error("Unable to upload corpus to Galaxy history", e);
-						status.put(workflowExecutionId, new ExecutionStatus(e));
+						
+						updateStatus(new ExecutionStatus(e), workflowExecutionId, TopicsRegistry.workflowsExecution);
+						//statusMonitor.put(workflowExecutionId, new ExecutionStatus(e));
 						return;
 					}
 				}
@@ -225,7 +242,9 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 					outputDir = Files.createTempDirectory("omtd-workflow-output");
 				} catch (IOException e) {
 					log.error("Unable to create annotations output dir", e);
-					status.put(workflowExecutionId, new ExecutionStatus(e));
+					
+					updateStatus(new ExecutionStatus(e), workflowExecutionId, TopicsRegistry.workflowsExecution);
+					//statusMonitor.put(workflowExecutionId, new ExecutionStatus(e));
 					return;
 				}
 				
@@ -233,10 +252,10 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 				
 				try{
 					galaxy.setScriptsPath(galaxyScriptsPath);
-					galaxy.runWorkflow(workflowID, testWorkflowId, historyId, ids, filesList, outputDir.toFile().getAbsolutePath() + "/");	
+					galaxy.runWorkflow(workflowID, workflowIDInGalaxy, historyId, ids, filesList, outputDir.toFile().getAbsolutePath() + "/");	
 				}catch(Exception e){
 					e.printStackTrace();
-					log.info(e);
+					log.debug("error",e);
 					error = true;
 				}	
 				
@@ -246,20 +265,27 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 						Path corpusZip = Paths.get(corpusDir.getName() + ".zip");
 						log.info(corpusDir.getName() + "\t" + corpusZip);
 						pack(outputDir, corpusZip);
-						status.put(workflowExecutionId, new ExecutionStatus(corpusZip.toUri().toString()));
+						
+						updateStatus(new ExecutionStatus(corpusZip.toUri().toString()), workflowExecutionId, TopicsRegistry.workflowsExecution);
+						//statusMonitor.put(workflowExecutionId, new ExecutionStatus(corpusZip.toUri().toString()));
 					} else {
 						String archiveID = uploadArchive(storeClient, outputDir);
-						status.put(workflowExecutionId, new ExecutionStatus(archiveID));
+						
+						updateStatus(new ExecutionStatus(archiveID), workflowExecutionId, TopicsRegistry.workflowsExecution);
+						//statusMonitor.put(workflowExecutionId, new ExecutionStatus(archiveID));
 					}
 				} catch (IOException e) {
 					log.info("unable to store workflow results", e);
-					status.put(workflowExecutionId, new ExecutionStatus(e));
+					
+					updateStatus(new ExecutionStatus(e), workflowExecutionId, TopicsRegistry.workflowsExecution);
+					//statusMonitor.put(workflowExecutionId, new ExecutionStatus(e));
 					error = true;
 					//return;
 				}				
 									
 				if(error){
-					status.put(workflowExecutionId, new ExecutionStatus(Status.FAILED));
+					//statusMonitor.put(workflowExecutionId, new ExecutionStatus(Status.FAILED));
+					updateStatus(new ExecutionStatus(Status.FAILED), workflowExecutionId, TopicsRegistry.workflowsExecution);
 				}
 			}
 		};
@@ -276,8 +302,26 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 		return workflowExecutionId.toString();
 	}
 
+	private void initConnectionToGalaxy(){
+		galaxy = new Galaxy(galaxyInstanceUrl, galaxyApiKey);
+		log.info("Connected to Galaxy");	
+	}
+	
+	private void updateStatus(ExecutionStatus executionStatus, String workflowExecutionId, String topic){		
+		try{
+			String status = executionStatus.getStatus().toString();
+			statusMonitor.put(workflowExecutionId, executionStatus);
+			log.info("updateStatus" + topic + "-->" + status);
+			messageServiceConnector.publishMessage(topic, status);
+			log.info("updateStatus" + topic + "-->" + status + " DONE");
+		}catch(Exception e){
+			e.printStackTrace();
+			log.debug("error", e);
+		}
+	}
+	
 	private boolean shouldContinue(String workflowExecutionId) {
-		Status executionStatus = status.get(workflowExecutionId).getStatus();
+		Status executionStatus = statusMonitor.get(workflowExecutionId).getStatus();
 
 		if (executionStatus == null)
 			return true;
@@ -285,7 +329,7 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 		while (executionStatus.equals(Status.PAUSED)) {
 			try {
 				Thread.sleep(200L);
-				executionStatus = status.get(workflowExecutionId).getStatus();
+				executionStatus = statusMonitor.get(workflowExecutionId).getStatus();
 			} catch (InterruptedException e) {
 				log.error("something went wrong while wating for a paused workflow to be resumed");
 				return false;
@@ -297,37 +341,37 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 
 	@Override
 	public void cancel(String workflowExecutionId) throws WorkflowException {
-		if (!status.containsKey(workflowExecutionId))
+		if (!statusMonitor.containsKey(workflowExecutionId))
 			return;
 
-		status.put(workflowExecutionId, new ExecutionStatus(Status.CANCELED));
+		statusMonitor.put(workflowExecutionId, new ExecutionStatus(Status.CANCELED));
 	}
 
 	@Override
 	public void pause(String workflowExecutionId) throws WorkflowException {
-		if (!status.containsKey(workflowExecutionId))
+		if (!statusMonitor.containsKey(workflowExecutionId))
 			return;
 
-		status.put(workflowExecutionId, new ExecutionStatus(Status.PAUSED));
+		statusMonitor.put(workflowExecutionId, new ExecutionStatus(Status.PAUSED));
 	}
 
 	@Override
 	public void resume(String workflowExecutionId) throws WorkflowException {
-		if (!status.containsKey(workflowExecutionId))
+		if (!statusMonitor.containsKey(workflowExecutionId))
 			return;
 
-		if (!status.get(workflowExecutionId).getStatus().equals(Status.PAUSED))
+		if (!statusMonitor.get(workflowExecutionId).getStatus().equals(Status.PAUSED))
 			return;
 
-		status.put(workflowExecutionId, new ExecutionStatus(Status.RUNNING));
+		statusMonitor.put(workflowExecutionId, new ExecutionStatus(Status.RUNNING));
 	}
 
 	@Override
 	public ExecutionStatus getExecutionStatus(String workflowExecutionId) throws WorkflowException {
-		if (!status.containsKey(workflowExecutionId))
+		if (!statusMonitor.containsKey(workflowExecutionId))
 			throw new WorkflowException("Unknown Workflow Execution ID");
 
-		return status.get(workflowExecutionId);
+		return statusMonitor.get(workflowExecutionId);
 	}
 
 
