@@ -315,9 +315,9 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 		try{
 			String status = executionStatus.getStatus().toString();
 			statusMonitor.put(workflowExecutionId, executionStatus);
-			log.info("updateStatus" + topic + "-->" + status);
+			log.info("updateStatus:" + topic + "-->" + status);
 			messageServicePublisher.publishMessage(topic, status);
-			log.info("updateStatus" + topic + "-->" + status + " DONE");
+			log.info("updateStatus:" + topic + "-->" + status + " DONE");
 		}catch(Exception e){
 			e.printStackTrace();
 			log.debug("error", e);
