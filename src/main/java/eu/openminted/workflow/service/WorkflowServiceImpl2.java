@@ -55,10 +55,10 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 
 	private static Map<String, ExecutionStatus> statusMonitor = new HashMap<String, ExecutionStatus>();
 	
-	@Autowired
+	//@Autowired
 	MessageServicePublisher messageServicePublisher;
 		
-	@Autowired
+	//@Autowired
 	MessageServiceSubscriber messageServiceSubscriber;
 	
 	// these should probably both be set via injection
@@ -74,25 +74,34 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 	@Value("${galaxy.scriptsPath}")
 	String galaxyScriptsPath;
 	
-	@RequestMapping("/")
-	String home() {
-		return "omtd-workflow-service for <a href=\"" + galaxyInstanceUrl + "\">galaxy</a>";
-	}
+	//@RequestMapping("/")
+	//String home() {
+	//	return "omtd-workflow-service for <a href=\"" + galaxyInstanceUrl + "\">galaxy</a>";
+	//}
 
 	public WorkflowServiceImpl2(){
 		log.info("Implementation:" + WorkflowServiceImpl2.class.getName());
 	}
 	
+	public WorkflowServiceImpl2(MessageServicePublisher messageServicePublisher, MessageServiceSubscriber messageServiceSubscriber){
+		log.info("Implementation:" + WorkflowServiceImpl2.class.getName());
+		
+		this.messageServicePublisher = messageServicePublisher;
+		this.messageServiceSubscriber = messageServiceSubscriber;
+		
+		// Not the appropriate topics (used for testing).
+		this.messageServiceSubscriber.addTopic(TopicsRegistry.workflowsExecution);
+		this.messageServiceSubscriber.addTopic(TopicsRegistry.workflowsExecutionCompleted);
+	}
+	
 	@SuppressWarnings("unused")
 	@Override
 	public String execute(WorkflowJob workflowJob) throws WorkflowException {
-		
 		log.info("execute started");		
 		
 		initConnectionToGalaxy();
 		
 		final String workflowExecutionId = UUID.randomUUID().toString();
-		
 		updateStatus(new ExecutionStatus(Status.PENDING), workflowExecutionId, TopicsRegistry.workflowsExecution);
 		//statusMonitor.put(workflowExecutionId, new ExecutionStatus(Status.PENDING));
 
@@ -273,7 +282,7 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 					} else {
 						String archiveID = uploadArchive(storeClient, outputDir);
 						
-						updateStatus(new ExecutionStatus(archiveID), workflowExecutionId, TopicsRegistry.workflowsExecution);
+						updateStatus(new ExecutionStatus(archiveID), workflowExecutionId, TopicsRegistry.workflowsExecutionCompleted);
 						//statusMonitor.put(workflowExecutionId, new ExecutionStatus(archiveID));
 					}
 				} catch (IOException e) {
