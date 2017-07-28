@@ -34,7 +34,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 
 import com.github.jmchilton.blend4j.galaxy.beans.OutputDataset;
 
-import eu.openminted.messageservice.connector.MessageServiceConnector;
+import eu.openminted.messageservice.connector.MessageServicePublisher;
+import eu.openminted.messageservice.connector.MessageServiceSubscriber;
 import eu.openminted.messageservice.connector.TopicsRegistry;
 import eu.openminted.store.common.StoreResponse;
 import eu.openminted.store.restclient.StoreRESTClient;
@@ -55,8 +56,11 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 	private static Map<String, ExecutionStatus> statusMonitor = new HashMap<String, ExecutionStatus>();
 	
 	@Autowired
-	MessageServiceConnector messageServiceConnector;
+	MessageServicePublisher messageServicePublisher;
 		
+	@Autowired
+	MessageServiceSubscriber messageServiceSubscriber;
+	
 	// these should probably both be set via injection
 	@Value("${galaxy.url}")
 	String galaxyInstanceUrl;
@@ -312,7 +316,7 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 			String status = executionStatus.getStatus().toString();
 			statusMonitor.put(workflowExecutionId, executionStatus);
 			log.info("updateStatus" + topic + "-->" + status);
-			messageServiceConnector.publishMessage(topic, status);
+			messageServicePublisher.publishMessage(topic, status);
 			log.info("updateStatus" + topic + "-->" + status + " DONE");
 		}catch(Exception e){
 			e.printStackTrace();
