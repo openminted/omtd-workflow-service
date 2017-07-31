@@ -37,6 +37,7 @@ import com.github.jmchilton.blend4j.galaxy.beans.OutputDataset;
 import eu.openminted.messageservice.connector.MessageServicePublisher;
 import eu.openminted.messageservice.connector.MessageServiceSubscriber;
 import eu.openminted.messageservice.connector.TopicsRegistry;
+import eu.openminted.messageservice.messages.WorkflowExecutionStatusMessage;
 import eu.openminted.store.common.StoreResponse;
 import eu.openminted.store.restclient.StoreRESTClient;
 import eu.openminted.workflow.api.ExecutionStatus;
@@ -324,8 +325,12 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 		try{
 			String status = executionStatus.getStatus().toString();
 			statusMonitor.put(workflowExecutionId, executionStatus);
+			
 			log.info("updateStatus:" + topic + "-->" + status);
-			messageServicePublisher.publishMessage(topic, status);
+			WorkflowExecutionStatusMessage msg = new WorkflowExecutionStatusMessage(); 
+			msg.setWorkflowExecutionID(workflowExecutionId);
+			msg.setWorkflowStatus(status);
+			messageServicePublisher.publishMessage(topic, msg);
 			log.info("updateStatus:" + topic + "-->" + status + " DONE");
 		}catch(Exception e){
 			e.printStackTrace();
