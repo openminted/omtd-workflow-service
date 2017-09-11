@@ -25,12 +25,9 @@ import java.util.zip.ZipOutputStream;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.stereotype.Component;
-import org.springframework.web.bind.annotation.RequestMapping;
 
 import com.github.jmchilton.blend4j.galaxy.beans.OutputDataset;
 
@@ -50,7 +47,6 @@ import eu.openminted.workflow.api.WorkflowService;
 public class WorkflowServiceImpl2 implements WorkflowService {
 
 	private static final Logger log = LoggerFactory.getLogger(WorkflowServiceImpl2.class);
-	//private static Logger log = Logger.getLogger(WorkflowServiceImpl2.class);
 	
 	private Galaxy galaxy;	
 
@@ -72,14 +68,6 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 	@Value("${store.endpoint}")
 	String storeEndpoint;
 
-	@Value("${galaxy.scriptsPath}")
-	String galaxyScriptsPath;
-	
-	//@RequestMapping("/")
-	//String home() {
-	//	return "omtd-workflow-service for <a href=\"" + galaxyInstanceUrl + "\">galaxy</a>";
-	//}
-
 	public WorkflowServiceImpl2(){
 		log.info("Implementation:" + WorkflowServiceImpl2.class.getName());
 	}
@@ -95,7 +83,6 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 		this.messageServiceSubscriber.addTopic(TopicsRegistry.workflowsExecutionCompleted);
 	}
 	
-	@SuppressWarnings("unused")
 	@Override
 	public String execute(WorkflowJob workflowJob) throws WorkflowException {
 		log.info("execute started");		
@@ -258,7 +245,6 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 				boolean error = false;
 				
 				try{
-					galaxy.setScriptsPath(galaxyScriptsPath);
 					galaxy.runWorkflow(workflowID, workflowIDInGalaxy, historyId, ids, filesList, outputDir.toFile().getAbsolutePath() + "/");	
 				}catch(Exception e){
 					e.printStackTrace();
@@ -388,7 +374,11 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 
 		return statusMonitor.get(workflowExecutionId);
 	}
-
+	
+	@Override
+	public void delete(eu.openminted.registry.domain.Component arg0) throws WorkflowException {
+				
+	}
 
 	private static File toFile(URL url) {
 		try {
@@ -433,5 +423,4 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 	public static void main(String[] args) throws Exception {
 		SpringApplication.run(WorkflowServiceImpl2.class, args);
 	}
-
 }
