@@ -158,7 +158,6 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 						// files to it					
 						log.info("corpusZipFileName:" + corpusZipFileName);
 						log.info("corpusId:" + corpusId);
-						//log.info(corpusZip.toURI());
 						
 					} catch (IOException e) {
 						log.info("Unable to retrieve specified corpus with ID " + corpusId, e);
@@ -195,8 +194,8 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 									return FileVisitResult.CONTINUE;
 
 								} finally {
-									//if (tmpFile != null)
-									//	Files.delete(tmpFile);
+									if (tmpFile != null)
+										Files.delete(tmpFile);
 								}
 
 							}
@@ -241,15 +240,14 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 					updateStatus(new ExecutionStatus(e), workflowExecutionId, TopicsRegistry.workflowsExecution);
 					return;
 				}
-				
-				boolean error = false;
-				
+								
 				try{
 					galaxy.runWorkflow(workflowID, workflowIDInGalaxy, historyId, ids, filesList, outputDir.toFile().getAbsolutePath() + "/");	
 				}catch(Exception e){
 					e.printStackTrace();
 					log.debug("error",e);
-					error = true;
+					updateStatus(new ExecutionStatus(e), workflowExecutionId, TopicsRegistry.workflowsExecution);
+					return;
 				}	
 				
 				try {
@@ -269,13 +267,8 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 					log.info("unable to store workflow results", e);
 					
 					updateStatus(new ExecutionStatus(e), workflowExecutionId, TopicsRegistry.workflowsExecution);
-					error = true;
-					//return;
+					return;
 				}				
-									
-				if(error){
-					updateStatus(new ExecutionStatus(Status.FAILED), workflowExecutionId, TopicsRegistry.workflowsExecution);
-				}
 			}
 		};
 
@@ -345,12 +338,22 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 		if (!statusMonitor.containsKey(workflowExecutionId))
 			return;
 
+		// you can't cancel if the workflow has finished or failed
+		if (statusMonitor.get(workflowExecutionId).getStatus().equals(Status.FINISHED)
+				|| statusMonitor.get(workflowExecutionId).getStatus().equals(Status.FAILED))
+			return;
+
 		statusMonitor.put(workflowExecutionId, new ExecutionStatus(Status.CANCELED));
 	}
 
 	@Override
 	public void pause(String workflowExecutionId) throws WorkflowException {
 		if (!statusMonitor.containsKey(workflowExecutionId))
+			return;
+
+		// you can't pause unless the workflow is pending or running
+		if (!statusMonitor.get(workflowExecutionId).getStatus().equals(Status.PENDING)
+				&& !statusMonitor.get(workflowExecutionId).getStatus().equals(Status.RUNNING))
 			return;
 
 		statusMonitor.put(workflowExecutionId, new ExecutionStatus(Status.PAUSED));
@@ -361,6 +364,7 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 		if (!statusMonitor.containsKey(workflowExecutionId))
 			return;
 
+		//you can't resume a workflow that isn't paused
 		if (!statusMonitor.get(workflowExecutionId).getStatus().equals(Status.PAUSED))
 			return;
 
@@ -377,7 +381,7 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 	
 	@Override
 	public void delete(eu.openminted.registry.domain.Component arg0) throws WorkflowException {
-				
+		
 	}
 
 	private static File toFile(URL url) {
