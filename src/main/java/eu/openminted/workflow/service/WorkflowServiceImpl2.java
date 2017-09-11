@@ -104,7 +104,6 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 		
 		final String workflowExecutionId = UUID.randomUUID().toString();
 		updateStatus(new ExecutionStatus(Status.PENDING), workflowExecutionId, TopicsRegistry.workflowsExecution);
-		//statusMonitor.put(workflowExecutionId, new ExecutionStatus(Status.PENDING));
 
 		log.info("Starting workflow execution " + workflowExecutionId + " using Galaxy instance at "
 				+ galaxyInstanceUrl);
@@ -118,7 +117,6 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 				//}
 
 				updateStatus(new ExecutionStatus(Status.RUNNING), workflowExecutionId, TopicsRegistry.workflowsExecution);
-				//statusMonitor.put(workflowExecutionId, new ExecutionStatus(Status.RUNNING));
 
 				StoreRESTClient storeClient = new StoreRESTClient(storeEndpoint);
 
@@ -140,8 +138,6 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 					log.info("Unable to locate workflow: " + workflowID);
 					
 					updateStatus(new ExecutionStatus(new WorkflowException("Unable to locate named workflow")), workflowExecutionId, TopicsRegistry.workflowsExecution);
-					//statusMonitor.put(workflowExecutionId,
-					//		new ExecutionStatus(new WorkflowException("Unable to locate named workflow")));
 					return;
 				}
 
@@ -168,6 +164,9 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 						log.info("download:" + corpusId + " to " + corpusZipFileName + " from " + storeEndpoint);
 						StoreResponse storeResponse = storeClient.downloadArchive(corpusId, corpusZipFileName);
 						
+						if(!storeResponse.getResponse().startsWith("true")){
+							throw new IOException("Problem on downloading from STORE.");
+						}
 						// create a new history for this run and upload the input
 						// files to it					
 						log.info("corpusZipFileName:" + corpusZipFileName);
@@ -178,7 +177,6 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 						log.info("Unable to retrieve specified corpus with ID " + corpusId, e);
 						
 						updateStatus(new ExecutionStatus(e), workflowExecutionId, TopicsRegistry.workflowsExecution);						
-						//statusMonitor.put(workflowExecutionId, new ExecutionStatus(e));
 						return;
 					}
 
@@ -222,7 +220,6 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 						log.error("Unable to upload corpus to Galaxy history", e);
 						
 						updateStatus(new ExecutionStatus(e), workflowExecutionId, TopicsRegistry.workflowsExecution);
-						//statusMonitor.put(workflowExecutionId, new ExecutionStatus(e));
 						return;
 					}
 				} else {
@@ -243,7 +240,6 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 						log.error("Unable to upload corpus to Galaxy history", e);
 						
 						updateStatus(new ExecutionStatus(e), workflowExecutionId, TopicsRegistry.workflowsExecution);
-						//statusMonitor.put(workflowExecutionId, new ExecutionStatus(e));
 						return;
 					}
 				}
@@ -256,7 +252,6 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 					log.error("Unable to create annotations output dir", e);
 					
 					updateStatus(new ExecutionStatus(e), workflowExecutionId, TopicsRegistry.workflowsExecution);
-					//statusMonitor.put(workflowExecutionId, new ExecutionStatus(e));
 					return;
 				}
 				
@@ -279,24 +274,20 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 						pack(outputDir, corpusZip);
 						
 						updateStatus(new ExecutionStatus(corpusZip.toUri().toString()), workflowExecutionId, TopicsRegistry.workflowsExecution);
-						//statusMonitor.put(workflowExecutionId, new ExecutionStatus(corpusZip.toUri().toString()));
 					} else {
 						String archiveID = uploadArchive(storeClient, outputDir);
 						
 						updateStatus(new ExecutionStatus(archiveID), workflowExecutionId, TopicsRegistry.workflowsExecutionCompleted);
-						//statusMonitor.put(workflowExecutionId, new ExecutionStatus(archiveID));
 					}
 				} catch (IOException e) {
 					log.info("unable to store workflow results", e);
 					
 					updateStatus(new ExecutionStatus(e), workflowExecutionId, TopicsRegistry.workflowsExecution);
-					//statusMonitor.put(workflowExecutionId, new ExecutionStatus(e));
 					error = true;
 					//return;
 				}				
 									
 				if(error){
-					//statusMonitor.put(workflowExecutionId, new ExecutionStatus(Status.FAILED));
 					updateStatus(new ExecutionStatus(Status.FAILED), workflowExecutionId, TopicsRegistry.workflowsExecution);
 				}
 			}
@@ -327,9 +318,15 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 			statusMonitor.put(workflowExecutionId, executionStatus);
 			
 			log.info("updateStatus:" + topic + "-->" + status);
+			
 			WorkflowExecutionStatusMessage msg = new WorkflowExecutionStatusMessage(); 
 			msg.setWorkflowExecutionID(workflowExecutionId);
 			msg.setWorkflowStatus(status);
+			
+			if(status.equalsIgnoreCase(ExecutionStatus.Status.FINISHED.toString())){
+				msg.setResultingCorpusID(executionStatus.getCorpusID());
+			}
+			
 			messageServicePublisher.publishMessage(topic, msg);
 			log.info("updateStatus:" + topic + "-->" + status + " DONE");
 		}catch(Exception e){
