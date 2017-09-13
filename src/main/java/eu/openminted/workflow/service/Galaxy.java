@@ -184,6 +184,10 @@ public class Galaxy {
 		}
 		return workflowId;
 	}
+	
+	public void deleteWorkflow(String workflowId) {
+		workflowsClient.deleteWorkflowRequest(workflowId);
+	}
 
 	public List<String> populateHistory(final String historyId, final List<File> files) throws InterruptedException {
 		final List<String> ids = Lists.newArrayListWithCapacity(files.size());
@@ -269,12 +273,15 @@ public class Galaxy {
 					return null;
 				}
 				
+				log.info(invocation.getWorkflowSteps().size() + " == " + stepCount);
+				
 				if (invocation.getWorkflowSteps().size() == stepCount) {
 					break;
 				}
 			}catch(Exception e){
 				e.printStackTrace();
 				log.info(e.getMessage());
+				return null;
 			}
 			
 			Thread.sleep(200);
@@ -294,10 +301,17 @@ public class Galaxy {
 				
 				if(step!= null){
 					log.info("Step state:" + step.getState());
+					
+					if (step.getState().equals("error")) {
+						return null;
+					}
+					
 					String jobId = step.getJobId();
 					
 					JobDetails jobDetails = jobsClient.showJob(jobId);
 					log.info("JOB DETAILS: "+jobDetails.getState()+"|"+jobDetails.getExitCode());
+					
+					
 				}
 				
 				if (step!= null && step.getState()!= null && step.getState().equals("ok")) {

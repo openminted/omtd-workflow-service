@@ -139,6 +139,7 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 				String corpusId = workflowJob.getCorpusId();
 				
 				String historyId = galaxy.createHistory();
+
 				final List<String> ids = new ArrayList<String>();
 				final ArrayList<File> filesList = new ArrayList<File>();
 				
@@ -380,8 +381,18 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 	}
 	
 	@Override
-	public void delete(eu.openminted.registry.domain.Component arg0) throws WorkflowException {
+	public void delete(eu.openminted.registry.domain.Component workflow) throws WorkflowException {
+		String workflowID = workflow.getMetadataHeaderInfo().getMetadataRecordIdentifier().getValue();
+
+		initConnectionToGalaxy();
 		
+		// make sure we have the workflow we want to run and get it's
+		// details
+		String workflowIDInGalaxy = galaxy.ensureHasWorkflow(workflowID);
+		log.info("found workflow ID" + workflowID+"/"+workflowIDInGalaxy);
+		if (workflowIDInGalaxy == null) return;
+		
+		galaxy.deleteWorkflow(workflowIDInGalaxy);
 	}
 
 	private static File toFile(URL url) {

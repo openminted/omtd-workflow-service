@@ -2,6 +2,11 @@ package eu.openminted.workflow.service;
 
 import org.junit.Test;
 
+import com.github.jmchilton.blend4j.galaxy.GalaxyInstance;
+import com.github.jmchilton.blend4j.galaxy.GalaxyInstanceFactory;
+import com.github.jmchilton.blend4j.galaxy.WorkflowsClient;
+import com.github.jmchilton.blend4j.galaxy.beans.Workflow;
+
 import eu.openminted.registry.domain.Component;
 import eu.openminted.registry.domain.MetadataHeaderInfo;
 import eu.openminted.registry.domain.MetadataIdentifier;
@@ -19,6 +24,8 @@ public class WorkflowServiceImpl2Test extends TestCase {
 		WorkflowServiceImpl2 workflowService = new WorkflowServiceImpl2();
 		workflowService.galaxyInstanceUrl = "http://snf-754063.vm.okeanos.grnet.gr/";
 		workflowService.galaxyApiKey = "36ea7fa29c38b9144dded51957b22ddb";
+		//workflowService.galaxyInstanceUrl = "http://localhost:8080/";
+		//workflowService.galaxyApiKey = "0403419ce354f40ff6503176c81ebbaf";
 
 		String executionID = startWorkflow(workflowService, "MGTest1", "/input/PDFs/");
 
@@ -63,5 +70,24 @@ public class WorkflowServiceImpl2Test extends TestCase {
 		// System.out.println("about to execute");
 		return workflowService.execute(workflowJob);
 
+	}
+	
+	@Test
+	public void testDeleteWorkflow() throws Exception {
+		MetadataIdentifier metadataId = new MetadataIdentifier();
+		metadataId.setValue("ToBeDeleted");
+		
+		MetadataHeaderInfo metadataHeaderInfo = new MetadataHeaderInfo();		
+		metadataHeaderInfo.setMetadataRecordIdentifier(metadataId);
+		
+		Component workflow = new Component();
+		workflow.setMetadataHeaderInfo(metadataHeaderInfo);
+		
+		WorkflowServiceImpl2 service = new WorkflowServiceImpl2();
+		service.galaxyApiKey = "0403419ce354f40ff6503176c81ebbaf";
+		service.galaxyInstanceUrl = "http://localhost:8080";
+		
+		service.delete(workflow);
+		
 	}
 }
