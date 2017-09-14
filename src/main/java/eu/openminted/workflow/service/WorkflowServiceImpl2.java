@@ -98,10 +98,10 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 		Runnable runner = new Runnable() {
 
 			public void run() {
-				//if (!shouldContinue(workflowExecutionId)){
-				//	log.info("shouldContinue false");
-				//	//return;					
-				//}
+				if (!shouldContinue(workflowExecutionId)){
+					log.info("shouldContinue false");
+					return;					
+				}
 
 				updateStatus(new ExecutionStatus(Status.RUNNING), workflowExecutionId, TopicsRegistry.workflowsExecution);
 
@@ -276,13 +276,8 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 		Thread t = new Thread(runner);
 		t.start();
 
-		/**
-		 * return an ID that can be used to lookup the workflow later so you can
-		 * get the status. this probably means spawning a thread for the actual
-		 * execution so we can monitor the status of the Galaxy job as it runs
-		 **/
-		
-		return workflowExecutionId.toString();
+		// return an ID that can be used to lookup the workflow later so you can
+		 return workflowExecutionId.toString();
 	}
 
 	private void initConnectionToGalaxy(){
@@ -349,7 +344,6 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 				|| statusMonitor.get(workflowExecutionId).getStatus().equals(Status.FAILED))
 			return;
 
-		//statusMonitor.put(workflowExecutionId, new ExecutionStatus(Status.CANCELED));
 		updateStatus(new ExecutionStatus(Status.CANCELED), workflowExecutionId, TopicsRegistry.workflowsExecution);
 	}
 
@@ -363,7 +357,6 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 				&& !statusMonitor.get(workflowExecutionId).getStatus().equals(Status.RUNNING))
 			return;
 
-		//statusMonitor.put(workflowExecutionId, new ExecutionStatus(Status.PAUSED));
 		updateStatus(new ExecutionStatus(Status.PAUSED), workflowExecutionId, TopicsRegistry.workflowsExecution);
 	}
 
@@ -375,8 +368,7 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 		//you can't resume a workflow that isn't paused
 		if (!statusMonitor.get(workflowExecutionId).getStatus().equals(Status.PAUSED))
 			return;
-
-		//statusMonitor.put(workflowExecutionId, new ExecutionStatus(Status.RUNNING));
+		
 		updateStatus(new ExecutionStatus(Status.RUNNING), workflowExecutionId, TopicsRegistry.workflowsExecution);
 	}
 
@@ -394,8 +386,7 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 
 		initConnectionToGalaxy();
 		
-		// make sure we have the workflow we want to run and get it's
-		// details
+		// make sure we have the workflow we want to delete
 		String workflowIDInGalaxy = galaxy.ensureHasWorkflow(workflowID);
 		log.info("found workflow ID" + workflowID+"/"+workflowIDInGalaxy);
 		if (workflowIDInGalaxy == null) return;
