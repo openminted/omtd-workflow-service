@@ -2,11 +2,6 @@ package eu.openminted.workflow.service;
 
 import org.junit.Test;
 
-import com.github.jmchilton.blend4j.galaxy.GalaxyInstance;
-import com.github.jmchilton.blend4j.galaxy.GalaxyInstanceFactory;
-import com.github.jmchilton.blend4j.galaxy.WorkflowsClient;
-import com.github.jmchilton.blend4j.galaxy.beans.Workflow;
-
 import eu.openminted.registry.domain.Component;
 import eu.openminted.registry.domain.MetadataHeaderInfo;
 import eu.openminted.registry.domain.MetadataIdentifier;
@@ -27,7 +22,7 @@ public class WorkflowServiceImpl2Test extends TestCase {
 		//workflowService.galaxyInstanceUrl = "http://localhost:8080/";
 		//workflowService.galaxyApiKey = "0403419ce354f40ff6503176c81ebbaf";
 
-		String executionID = startWorkflow(workflowService, "MGTest1", "/input/PDFs/");
+		String executionID = startWorkflow(workflowService, "MAGLatest1", "/input/PDFs/");
 
 		ExecutionStatus status = null;
 

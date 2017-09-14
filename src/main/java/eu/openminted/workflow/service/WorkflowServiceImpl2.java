@@ -294,16 +294,21 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 	
 	private void updateStatus(ExecutionStatus executionStatus, String workflowExecutionId, String topic){		
 		try{
-			String status = executionStatus.getStatus().toString();
+			Status status = executionStatus.getStatus();
 			statusMonitor.put(workflowExecutionId, executionStatus);
 			
 			log.info("updateStatus:" + topic + "-->" + status);
 			
+			if (messageServicePublisher == null) {
+				log.info("message service publisher not configured, message will be lost");
+				return;
+			}
+			
 			WorkflowExecutionStatusMessage msg = new WorkflowExecutionStatusMessage(); 
 			msg.setWorkflowExecutionID(workflowExecutionId);
-			msg.setWorkflowStatus(status);
+			msg.setWorkflowStatus(status.toString());
 			
-			if(status.equalsIgnoreCase(ExecutionStatus.Status.FINISHED.toString())){
+			if(Status.FINISHED.equals(status)){
 				msg.setResultingCorpusID(executionStatus.getCorpusID());
 			}
 			
@@ -344,7 +349,8 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 				|| statusMonitor.get(workflowExecutionId).getStatus().equals(Status.FAILED))
 			return;
 
-		statusMonitor.put(workflowExecutionId, new ExecutionStatus(Status.CANCELED));
+		//statusMonitor.put(workflowExecutionId, new ExecutionStatus(Status.CANCELED));
+		updateStatus(new ExecutionStatus(Status.CANCELED), workflowExecutionId, TopicsRegistry.workflowsExecution);
 	}
 
 	@Override
@@ -357,7 +363,8 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 				&& !statusMonitor.get(workflowExecutionId).getStatus().equals(Status.RUNNING))
 			return;
 
-		statusMonitor.put(workflowExecutionId, new ExecutionStatus(Status.PAUSED));
+		//statusMonitor.put(workflowExecutionId, new ExecutionStatus(Status.PAUSED));
+		updateStatus(new ExecutionStatus(Status.PAUSED), workflowExecutionId, TopicsRegistry.workflowsExecution);
 	}
 
 	@Override
@@ -369,7 +376,8 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 		if (!statusMonitor.get(workflowExecutionId).getStatus().equals(Status.PAUSED))
 			return;
 
-		statusMonitor.put(workflowExecutionId, new ExecutionStatus(Status.RUNNING));
+		//statusMonitor.put(workflowExecutionId, new ExecutionStatus(Status.RUNNING));
+		updateStatus(new ExecutionStatus(Status.RUNNING), workflowExecutionId, TopicsRegistry.workflowsExecution);
 	}
 
 	@Override
