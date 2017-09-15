@@ -373,7 +373,7 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 
 		galaxy.deleteWorkflow(workflowIDInGalaxy);
 	}
-O
+
 	private static String uploadArchive(StoreRESTClient storeClient, Path archiveData) throws IOException {
 		String archiveID = storeClient.createArchive().getResponse();
 		String annotationsFolderId = storeClient.createSubArchive(archiveID, "annotations").getResponse();
