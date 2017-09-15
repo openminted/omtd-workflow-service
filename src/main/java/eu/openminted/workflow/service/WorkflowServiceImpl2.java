@@ -47,17 +47,17 @@ import eu.openminted.workflow.api.WorkflowService;
 public class WorkflowServiceImpl2 implements WorkflowService {
 
 	private static final Logger log = LoggerFactory.getLogger(WorkflowServiceImpl2.class);
-	
-	private Galaxy galaxy;	
+
+	private Galaxy galaxy;
 
 	private static Map<String, ExecutionStatus> statusMonitor = new HashMap<String, ExecutionStatus>();
-	
-	//@Autowired
+
+	// @Autowired
 	MessageServicePublisher messageServicePublisher;
-		
-	//@Autowired
+
+	// @Autowired
 	MessageServiceSubscriber messageServiceSubscriber;
-	
+
 	// these should probably both be set via injection
 	@Value("${galaxy.url}")
 	String galaxyInstanceUrl;
@@ -68,27 +68,34 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 	@Value("${store.endpoint}")
 	String storeEndpoint;
 
-	public WorkflowServiceImpl2(){
+	@Value("${galaxy.user.email")
+	String galaxyUserEmail;
+
+	@Value("${galaxy.ftp.dir")
+	String galaxyFTPdir;
+
+	public WorkflowServiceImpl2() {
 		log.info("Implementation:" + WorkflowServiceImpl2.class.getName());
 	}
-	
-	public WorkflowServiceImpl2(MessageServicePublisher messageServicePublisher, MessageServiceSubscriber messageServiceSubscriber){
+
+	public WorkflowServiceImpl2(MessageServicePublisher messageServicePublisher,
+			MessageServiceSubscriber messageServiceSubscriber) {
 		log.info("Implementation:" + WorkflowServiceImpl2.class.getName());
-		
+
 		this.messageServicePublisher = messageServicePublisher;
 		this.messageServiceSubscriber = messageServiceSubscriber;
-		
+
 		// Not the appropriate topics (used for testing).
 		this.messageServiceSubscriber.addTopic(TopicsRegistry.workflowsExecution);
 		this.messageServiceSubscriber.addTopic(TopicsRegistry.workflowsExecutionCompleted);
 	}
-	
+
 	@Override
 	public String execute(WorkflowJob workflowJob) throws WorkflowException {
-		log.info("execute started");		
-		
+		log.info("execute started");
+
 		initConnectionToGalaxy();
-		
+
 		final String workflowExecutionId = UUID.randomUUID().toString();
 		updateStatus(new ExecutionStatus(Status.PENDING), workflowExecutionId, TopicsRegistry.workflowsExecution);
 
@@ -98,12 +105,13 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 		Runnable runner = new Runnable() {
 
 			public void run() {
-				if (!shouldContinue(workflowExecutionId)){
+				if (!shouldContinue(workflowExecutionId)) {
 					log.info("shouldContinue false");
-					return;					
+					return;
 				}
 
-				updateStatus(new ExecutionStatus(Status.RUNNING), workflowExecutionId, TopicsRegistry.workflowsExecution);
+				updateStatus(new ExecutionStatus(Status.RUNNING), workflowExecutionId,
+						TopicsRegistry.workflowsExecution);
 
 				StoreRESTClient storeClient = new StoreRESTClient(storeEndpoint);
 
@@ -123,8 +131,9 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 
 				if (workflowIDInGalaxy == null) {
 					log.info("Unable to locate workflow: " + workflowID);
-					
-					updateStatus(new ExecutionStatus(new WorkflowException("Unable to locate named workflow")), workflowExecutionId, TopicsRegistry.workflowsExecution);
+
+					updateStatus(new ExecutionStatus(new WorkflowException("Unable to locate named workflow")),
+							workflowExecutionId, TopicsRegistry.workflowsExecution);
 					return;
 				}
 
@@ -135,100 +144,76 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 				 * client. This should get us a folder but not sure the format
 				 * of the contents has been fixed yet
 				 **/
-												
+
 				String corpusId = workflowJob.getCorpusId();
-				
+
 				String historyId = galaxy.createHistory();
 
 				final List<String> ids = new ArrayList<String>();
 				final ArrayList<File> filesList = new ArrayList<File>();
-				
-				if (!corpusId.startsWith("file:")) {
-					File corpusZip;
-					try {
-						corpusZip = File.createTempFile("corpus", ".zip");
-						String corpusZipFileName = corpusZip.getAbsolutePath();
-						corpusZip.delete();
-						log.info("download:" + corpusId + " to " + corpusZipFileName + " from " + storeEndpoint);
-						StoreResponse storeResponse = storeClient.downloadArchive(corpusId, corpusZipFileName);
-						
-						if(!storeResponse.getResponse().startsWith("true")){
-							throw new IOException("Problem on downloading from STORE.");
-						}
-						// create a new history for this run and upload the input
-						// files to it					
-						log.info("corpusZipFileName:" + corpusZipFileName);
-						log.info("corpusId:" + corpusId);
-						
-					} catch (IOException e) {
-						log.info("Unable to retrieve specified corpus with ID " + corpusId, e);
-						
-						updateStatus(new ExecutionStatus(e), workflowExecutionId, TopicsRegistry.workflowsExecution);						
-						return;
+
+				File corpusZip;
+				try {
+					corpusZip = File.createTempFile("corpus", ".zip");
+					String corpusZipFileName = corpusZip.getAbsolutePath();
+					corpusZip.delete();
+					log.info("download:" + corpusId + " to " + corpusZipFileName + " from " + storeEndpoint);
+					StoreResponse storeResponse = storeClient.downloadArchive(corpusId, corpusZipFileName);
+
+					if (!storeResponse.getResponse().startsWith("true")) {
+						throw new IOException("Problem on downloading from STORE.");
 					}
+					// create a new history for this run and upload the input
+					// files to it
+					log.info("corpusZipFileName:" + corpusZipFileName);
+					log.info("corpusId:" + corpusId);
 
-					try (FileSystem zipFs = FileSystems
-							.newFileSystem(new URI("jar:" + corpusZip.getAbsoluteFile().toURI()), new HashMap<>());) {
+				} catch (IOException e) {
+					log.info("Unable to retrieve specified corpus with ID " + corpusId, e);
 
-						Path pathInZip = zipFs.getPath("/" + corpusId, "fulltext");
+					updateStatus(new ExecutionStatus(e), workflowExecutionId, TopicsRegistry.workflowsExecution);
+					return;
+				}
 
-						Files.walkFileTree(pathInZip, new SimpleFileVisitor<Path>() {
-							@Override
-							public FileVisitResult visitFile(Path filePath, BasicFileAttributes attrs)
-									throws IOException {
+				try (FileSystem zipFs = FileSystems.newFileSystem(new URI("jar:" + corpusZip.getAbsoluteFile().toURI()),
+						new HashMap<>());) {
 
-								// create a tmp file to hold the file from the
-								// zip while we upload it to Galaxy
-								Path tmpFile = null;
+					Path pathInZip = zipFs.getPath("/" + corpusId, "fulltext");
 
-								try {
-									log.info("Creating temp file:" + filePath.getFileName().toString());									
-									tmpFile = Files.createTempFile(null, filePath.getFileName().toString());
-									tmpFile = Files.copy(filePath, tmpFile, StandardCopyOption.REPLACE_EXISTING);
-									log.info("Uploading..." + tmpFile.toFile().getAbsolutePath());
-									OutputDataset dataset = galaxy.uploadFileToHistory(historyId, tmpFile.toFile());
-									ids.add(dataset.getId());
-									
-									File f = tmpFile.toFile();
-									filesList.add(f);
+					Files.walkFileTree(pathInZip, new SimpleFileVisitor<Path>() {
+						@Override
+						public FileVisitResult visitFile(Path filePath, BasicFileAttributes attrs) throws IOException {
 
-									return FileVisitResult.CONTINUE;
+							// create a tmp file to hold the file from the
+							// zip while we upload it to Galaxy
+							Path tmpFile = null;
 
-								} finally {
-									if (tmpFile != null)
-										Files.delete(tmpFile);
-								}
+							try {
+								log.info("Creating temp file:" + filePath.getFileName().toString());
+								tmpFile = Files.createTempFile(null, filePath.getFileName().toString());
+								tmpFile = Files.copy(filePath, tmpFile, StandardCopyOption.REPLACE_EXISTING);
+								log.info("Uploading..." + tmpFile.toFile().getAbsolutePath());
+								OutputDataset dataset = galaxy.uploadFileToHistory(historyId, tmpFile.toFile());
+								ids.add(dataset.getId());
 
+								File f = tmpFile.toFile();
+								filesList.add(f);
+
+								return FileVisitResult.CONTINUE;
+
+							} finally {
+								if (tmpFile != null)
+									Files.delete(tmpFile);
 							}
-						});
-						
 
-					} catch (IOException | URISyntaxException e) {
-						log.error("Unable to upload corpus to Galaxy history", e);
-						
-						updateStatus(new ExecutionStatus(e), workflowExecutionId, TopicsRegistry.workflowsExecution);
-						return;
-					}
-				} else {
-					
-					try {
-						final File inputDir = toFile(new URL(corpusId));
-
-						for (File f : inputDir.listFiles()) {
-							OutputDataset dataset = galaxy.uploadFileToHistory(historyId, f);
-							ids.add(dataset.getId());
-							
-							filesList.add(f);
 						}
+					});
 
-						galaxy.waitForHistory(historyId);
+				} catch (IOException | URISyntaxException e) {
+					log.error("Unable to upload corpus to Galaxy history", e);
 
-					} catch (InterruptedException | MalformedURLException e) {
-						log.error("Unable to upload corpus to Galaxy history", e);
-						
-						updateStatus(new ExecutionStatus(e), workflowExecutionId, TopicsRegistry.workflowsExecution);
-						return;
-					}
+					updateStatus(new ExecutionStatus(e), workflowExecutionId, TopicsRegistry.workflowsExecution);
+					return;
 				}
 
 				Path outputDir = null;
@@ -237,39 +222,33 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 					outputDir = Files.createTempDirectory("omtd-workflow-output");
 				} catch (IOException e) {
 					log.error("Unable to create annotations output dir", e);
-					
+
 					updateStatus(new ExecutionStatus(e), workflowExecutionId, TopicsRegistry.workflowsExecution);
 					return;
 				}
-								
-				try{
-					galaxy.runWorkflow(workflowID, workflowIDInGalaxy, historyId, ids, filesList, outputDir.toFile().getAbsolutePath() + "/");	
-				}catch(Exception e){
+
+				try {
+					galaxy.runWorkflow(workflowID, workflowIDInGalaxy, historyId, ids, filesList,
+							outputDir.toFile().getAbsolutePath() + "/");
+				} catch (Exception e) {
 					e.printStackTrace();
-					log.debug("error",e);
+					log.debug("error", e);
 					updateStatus(new ExecutionStatus(e), workflowExecutionId, TopicsRegistry.workflowsExecution);
 					return;
-				}	
-				
+				}
+
 				try {
-					if (corpusId.startsWith("file:")) {
-						File corpusDir = toFile(new URL(corpusId));
-						Path corpusZip = Paths.get(corpusDir.getName() + ".zip");
-						log.info(corpusDir.getName() + "\t" + corpusZip);
-						pack(outputDir, corpusZip);
-						
-						updateStatus(new ExecutionStatus(corpusZip.toUri().toString()), workflowExecutionId, TopicsRegistry.workflowsExecution);
-					} else {
-						String archiveID = uploadArchive(storeClient, outputDir);
-						
-						updateStatus(new ExecutionStatus(archiveID), workflowExecutionId, TopicsRegistry.workflowsExecutionCompleted);
-					}
+					String archiveID = uploadArchive(storeClient, outputDir);
+
+					updateStatus(new ExecutionStatus(archiveID), workflowExecutionId,
+							TopicsRegistry.workflowsExecutionCompleted);
+
 				} catch (IOException e) {
 					log.info("unable to store workflow results", e);
-					
+
 					updateStatus(new ExecutionStatus(e), workflowExecutionId, TopicsRegistry.workflowsExecution);
 					return;
-				}				
+				}
 			}
 		};
 
@@ -277,44 +256,44 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 		t.start();
 
 		// return an ID that can be used to lookup the workflow later so you can
-		 return workflowExecutionId.toString();
+		return workflowExecutionId.toString();
 	}
 
-	private void initConnectionToGalaxy(){
-		if(galaxy == null){
+	private void initConnectionToGalaxy() {
+		if (galaxy == null) {
 			galaxy = new Galaxy(galaxyInstanceUrl, galaxyApiKey);
-			log.info("Connected to Galaxy");	
+			log.info("Connected to Galaxy");
 		}
 	}
-	
-	private void updateStatus(ExecutionStatus executionStatus, String workflowExecutionId, String topic){		
-		try{
+
+	private void updateStatus(ExecutionStatus executionStatus, String workflowExecutionId, String topic) {
+		try {
 			Status status = executionStatus.getStatus();
 			statusMonitor.put(workflowExecutionId, executionStatus);
-			
+
 			log.info("updateStatus:" + topic + "-->" + status);
-			
+
 			if (messageServicePublisher == null) {
 				log.info("message service publisher not configured, message will be lost");
 				return;
 			}
-			
-			WorkflowExecutionStatusMessage msg = new WorkflowExecutionStatusMessage(); 
+
+			WorkflowExecutionStatusMessage msg = new WorkflowExecutionStatusMessage();
 			msg.setWorkflowExecutionID(workflowExecutionId);
 			msg.setWorkflowStatus(status.toString());
-			
-			if(Status.FINISHED.equals(status)){
+
+			if (Status.FINISHED.equals(status)) {
 				msg.setResultingCorpusID(executionStatus.getCorpusID());
 			}
-			
+
 			messageServicePublisher.publishMessage(topic, msg);
 			log.info("updateStatus:" + topic + "-->" + status + " DONE");
-		}catch(Exception e){
+		} catch (Exception e) {
 			e.printStackTrace();
 			log.debug("error", e);
 		}
 	}
-	
+
 	private boolean shouldContinue(String workflowExecutionId) {
 		Status executionStatus = statusMonitor.get(workflowExecutionId).getStatus();
 
@@ -365,10 +344,10 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 		if (!statusMonitor.containsKey(workflowExecutionId))
 			return;
 
-		//you can't resume a workflow that isn't paused
+		// you can't resume a workflow that isn't paused
 		if (!statusMonitor.get(workflowExecutionId).getStatus().equals(Status.PAUSED))
 			return;
-		
+
 		updateStatus(new ExecutionStatus(Status.RUNNING), workflowExecutionId, TopicsRegistry.workflowsExecution);
 	}
 
@@ -379,46 +358,22 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 
 		return statusMonitor.get(workflowExecutionId);
 	}
-	
+
 	@Override
 	public void delete(eu.openminted.registry.domain.Component workflow) throws WorkflowException {
 		String workflowID = workflow.getMetadataHeaderInfo().getMetadataRecordIdentifier().getValue();
 
 		initConnectionToGalaxy();
-		
+
 		// make sure we have the workflow we want to delete
 		String workflowIDInGalaxy = galaxy.ensureHasWorkflow(workflowID);
-		log.info("found workflow ID" + workflowID+"/"+workflowIDInGalaxy);
-		if (workflowIDInGalaxy == null) return;
-		
+		log.info("found workflow ID" + workflowID + "/" + workflowIDInGalaxy);
+		if (workflowIDInGalaxy == null)
+			return;
+
 		galaxy.deleteWorkflow(workflowIDInGalaxy);
 	}
-
-	private static File toFile(URL url) {
-		try {
-			return new File(url.toURI());
-		} catch (URISyntaxException e) {
-			return new File(url.getPath());
-		}
-	}
-
-	private static void pack(Path sourceDir, Path zipFile) throws IOException {
-
-		try (ZipOutputStream zs = new ZipOutputStream(Files.newOutputStream(zipFile))) {
-
-			Files.walk(sourceDir).filter(path -> !Files.isDirectory(path)).forEach(path -> {
-				ZipEntry zipEntry = new ZipEntry(sourceDir.relativize(path).toString());
-				try {
-					zs.putNextEntry(zipEntry);
-					zs.write(Files.readAllBytes(path));
-					zs.closeEntry();
-				} catch (Exception e) {
-					System.err.println(e);
-				}
-			});
-		}
-	}
-
+O
 	private static String uploadArchive(StoreRESTClient storeClient, Path archiveData) throws IOException {
 		String archiveID = storeClient.createArchive().getResponse();
 		String annotationsFolderId = storeClient.createSubArchive(archiveID, "annotations").getResponse();
@@ -432,7 +387,7 @@ public class WorkflowServiceImpl2 implements WorkflowService {
 		return archiveID;
 	}
 
-	// --- 
+	// ---
 	// ---
 	public static void main(String[] args) throws Exception {
 		SpringApplication.run(WorkflowServiceImpl2.class, args);
