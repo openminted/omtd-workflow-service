@@ -160,6 +160,9 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 				String corpusId = workflowJob.getCorpusId();
 
+				if (!shouldContinue(workflowExecutionId))
+					return;
+				
 				final History history = getGalaxy().getHistoriesClient()
 						.create(new History("OpenMinTeD - " + (new Date())));
 
@@ -183,6 +186,9 @@ public class WorkflowServiceImpl implements WorkflowService {
 					updateStatus(new ExecutionStatus(e), workflowExecutionId, TopicsRegistry.workflowsExecution);
 					return;
 				}
+				
+				if (!shouldContinue(workflowExecutionId))
+					return;
 
 				CollectionDescription collectionDescription = new CollectionDescription();
 				collectionDescription.setCollectionType("list");
@@ -268,6 +274,9 @@ public class WorkflowServiceImpl implements WorkflowService {
 					updateStatus(new ExecutionStatus(e), workflowExecutionId, TopicsRegistry.workflowsExecution);
 					return;
 				}
+				
+				if (!shouldContinue(workflowExecutionId))
+					return;
 
 				Path outputDir = null;
 
@@ -297,8 +306,13 @@ public class WorkflowServiceImpl implements WorkflowService {
 					setParameters(workflow, workflowInputs);
 					printDetails(workflow, workflowInputs);
 
+					if (!shouldContinue(workflowExecutionId))
+						return;
+					
 					log.info("Run workflow");
 
+					
+					
 					WorkflowInvocation workflowInvocation = getGalaxy().getWorkflowsClient()
 							.invokeWorkflow(workflowInputs);
 
@@ -313,6 +327,9 @@ public class WorkflowServiceImpl implements WorkflowService {
 					Map<String, WorkflowInvocationStepOutput> outputs = waitForInvocation(workflow.getId(),
 							invocationID, count);
 
+					if (!shouldContinue(workflowExecutionId))
+						return;
+					
 					if (outputs == null) {
 						// we failed to get the outputs
 						log.debug("error", "there were no outputs from the invocation");
@@ -325,6 +342,10 @@ public class WorkflowServiceImpl implements WorkflowService {
 					// TODO do we still need this check now we check the
 					// invocation ouput?
 					waitForHistory(history.getId());
+					
+					if (!shouldContinue(workflowExecutionId))
+						return;
+					
 					// Jobs for this history have been completed
 					// Also history is OK.
 					// So, start downloading
@@ -338,6 +359,9 @@ public class WorkflowServiceImpl implements WorkflowService {
 					return;
 				}
 
+				if (!shouldContinue(workflowExecutionId))
+					return;
+				
 				try {
 					String archiveID = uploadArchive(storeClient, outputDir);
 
