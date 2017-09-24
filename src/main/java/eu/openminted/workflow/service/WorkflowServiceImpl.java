@@ -495,7 +495,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 		if (workflowDetails == null)
 			return;
 
-		getGalaxy().getWorkflowsClient().deleteWorkflowRequest(workflowDetails.getId());
+		getGalaxy().getWorkflowsClient().deleteWorkflow(workflowDetails.getId());
 	}
 
 	private static String uploadArchive(StoreRESTClient storeClient, Path archiveData) throws IOException {
