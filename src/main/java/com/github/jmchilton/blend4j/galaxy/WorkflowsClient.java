@@ -36,6 +36,8 @@ public interface WorkflowsClient {
   
   WorkflowInvocationStep showInvocationStep(String workflowId, String invocationId, String stepId);
   
+  ClientResponse cancelWorkflowInvocation(String workflowId, String invocationId);
+  
   /**
    * Deletes the workflow with the given id (this is irreversible). This will
    * return a {@link ClientResponse} object providing access to the status code
@@ -47,5 +49,5 @@ public interface WorkflowsClient {
    *         by {@link ClientResponse#getClientResponseStatus()} should be
    *         verified for success.
    */
-  ClientResponse deleteWorkflowRequest(String id);
+  ClientResponse deleteWorkflow(String id);
 }
