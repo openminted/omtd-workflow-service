@@ -64,6 +64,8 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 	private static final Logger log = LoggerFactory.getLogger(WorkflowServiceImpl.class);
 
+	public final static String UNSET = "<UNSET>";
+	
 	private GalaxyInstance galaxy = null;
 
 	// TODO how does this ever shrink?
@@ -85,10 +87,10 @@ public class WorkflowServiceImpl implements WorkflowService {
 	@Value("${store.endpoint}")
 	String storeEndpoint;
 
-	@Value("${galaxy.user.email")
+	@Value("${galaxy.user.email:" + UNSET + "}")
 	String galaxyUserEmail;
 
-	@Value("${galaxy.ftp.dir")
+	@Value("${galaxy.ftp.dir:" + UNSET + "}")
 	String galaxyFTPdir;
 
 	public WorkflowServiceImpl() {
@@ -210,7 +212,8 @@ public class WorkflowServiceImpl implements WorkflowService {
 							OutputDataset dataset = null;
 							Path path = null;
 
-							if (galaxyFTPdir != null) {
+							if (galaxyFTPdir != null && !galaxyFTPdir.equals(UNSET)) {
+								log.info("galaxyFTPdir:" + galaxyFTPdir);
 								// it looks as if FTP support in Galaxy has been
 								// enabled so we'll use that rather than doing
 								// an HTTP upload which can be very slow
