@@ -69,7 +69,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 	private GalaxyInstance galaxy = null;
 
 	// TODO how does this ever shrink?
-	private static Map<String, ExecutionStatus> statusMonitor = new HashMap<String, ExecutionStatus>();
+	private static Map<String, WorkflowExecution> statusMonitor = new HashMap<String, WorkflowExecution>();
 
 	// @Autowired
 	MessageServicePublisher messageServicePublisher;
@@ -114,6 +114,9 @@ public class WorkflowServiceImpl implements WorkflowService {
 		log.info("execute started");
 
 		final String workflowExecutionId = UUID.randomUUID().toString();
+		
+		statusMonitor.put(workflowExecutionId, new WorkflowExecution(workflowExecutionId));
+		
 		updateStatus(new ExecutionStatus(Status.PENDING), workflowExecutionId, TopicsRegistry.workflowsExecution);
 
 		log.info("Starting workflow execution " + workflowExecutionId + " using Galaxy instance at "
@@ -153,6 +156,8 @@ public class WorkflowServiceImpl implements WorkflowService {
 				}
 
 				log.info("Workflow ID: " + workflow.getId());
+				
+				statusMonitor.get(workflowExecutionId).setWorkflowId(workflow.getId());
 
 				/**
 				 * download the corpus from the OMTD-STORE using the REST
@@ -320,6 +325,9 @@ public class WorkflowServiceImpl implements WorkflowService {
 							.invokeWorkflow(workflowInputs);
 
 					String invocationID = workflowInvocation.getId();
+					
+					statusMonitor.get(workflowExecutionId).setInvocationId(invocationID);
+					
 					log.info("invocationID for " + workflow.getId() + " " + invocationID);
 
 					log.info("count tools");
@@ -395,7 +403,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 	private void updateStatus(ExecutionStatus executionStatus, String workflowExecutionId, String topic) {
 		try {
 			Status status = executionStatus.getStatus();
-			statusMonitor.put(workflowExecutionId, executionStatus);
+			statusMonitor.get(workflowExecutionId).setExecutionStatus(executionStatus);
 
 			log.info("updateStatus:" + topic + "-->" + status);
 
@@ -421,7 +429,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 	}
 
 	protected boolean shouldContinue(String workflowExecutionId) {
-		Status executionStatus = statusMonitor.get(workflowExecutionId).getStatus();
+		Status executionStatus = statusMonitor.get(workflowExecutionId).getExecutionStatus().getStatus();
 
 		if (executionStatus == null)
 			return true;
@@ -429,7 +437,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 		while (executionStatus.equals(Status.PAUSED)) {
 			try {
 				Thread.sleep(200L);
-				executionStatus = statusMonitor.get(workflowExecutionId).getStatus();
+				executionStatus = statusMonitor.get(workflowExecutionId).getExecutionStatus().getStatus();
 			} catch (InterruptedException e) {
 				log.error("something went wrong while wating for a paused workflow to be resumed");
 				return false;
@@ -444,10 +452,19 @@ public class WorkflowServiceImpl implements WorkflowService {
 		if (!statusMonitor.containsKey(workflowExecutionId))
 			return;
 
+		WorkflowExecution workflowExecution = statusMonitor.get(workflowExecutionId);
+				
+		Status status = workflowExecution.getExecutionStatus().getStatus();
+		
 		// you can't cancel if the workflow has finished or failed
-		if (statusMonitor.get(workflowExecutionId).getStatus().equals(Status.FINISHED)
-				|| statusMonitor.get(workflowExecutionId).getStatus().equals(Status.FAILED))
+		if (status.equals(Status.FINISHED) || status.equals(Status.FAILED))
 			return;
+		
+		if (workflowExecution.getInvocationId() != null) {
+			//if we've actually invoked the workflow in Galaxy then lets try and cancel that
+			getGalaxy().getWorkflowsClient().cancelWorkflowInvocation(workflowExecution.getWorkflowId(),
+					workflowExecution.getInvocationId());
+		}
 
 		updateStatus(new ExecutionStatus(Status.CANCELED), workflowExecutionId, TopicsRegistry.workflowsExecution);
 	}
@@ -456,10 +473,11 @@ public class WorkflowServiceImpl implements WorkflowService {
 	public void pause(String workflowExecutionId) throws WorkflowException {
 		if (!statusMonitor.containsKey(workflowExecutionId))
 			return;
+		
+		Status status = statusMonitor.get(workflowExecutionId).getExecutionStatus().getStatus();
 
 		// you can't pause unless the workflow is pending or running
-		if (!statusMonitor.get(workflowExecutionId).getStatus().equals(Status.PENDING)
-				&& !statusMonitor.get(workflowExecutionId).getStatus().equals(Status.RUNNING))
+		if (!status.equals(Status.PENDING) && !status.equals(Status.RUNNING))
 			return;
 
 		updateStatus(new ExecutionStatus(Status.PAUSED), workflowExecutionId, TopicsRegistry.workflowsExecution);
@@ -470,8 +488,10 @@ public class WorkflowServiceImpl implements WorkflowService {
 		if (!statusMonitor.containsKey(workflowExecutionId))
 			return;
 
+		Status status = statusMonitor.get(workflowExecutionId).getExecutionStatus().getStatus();
+		
 		// you can't resume a workflow that isn't paused
-		if (!statusMonitor.get(workflowExecutionId).getStatus().equals(Status.PAUSED))
+		if (!status.equals(Status.PAUSED))
 			return;
 
 		updateStatus(new ExecutionStatus(Status.RUNNING), workflowExecutionId, TopicsRegistry.workflowsExecution);
@@ -482,7 +502,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 		if (!statusMonitor.containsKey(workflowExecutionId))
 			throw new WorkflowException("Unknown Workflow Execution ID");
 
-		return statusMonitor.get(workflowExecutionId);
+		return statusMonitor.get(workflowExecutionId).getExecutionStatus();
 	}
 
 	@Override
@@ -766,6 +786,48 @@ public class WorkflowServiceImpl implements WorkflowService {
 			log.info("Unable to download result from Galaxy history", e);
 			// status.put(workflowExecutionId, new ExecutionStatus(e));
 			// return;
+		}
+	}
+	
+	private static class WorkflowExecution {
+		private String executionId, workflowId, invocationId;
+		
+		private ExecutionStatus status;
+		
+		protected WorkflowExecution(String executionId) {
+			this.executionId = executionId;
+		}
+		
+		protected String getInvocationId() {
+			return invocationId;
+		}
+		
+		protected void setInvocationId(String invocationId) {
+			this.invocationId = invocationId;
+		}		
+		
+		protected String getExecutionId() {
+			return executionId;
+		}
+
+		protected void setExecutionId(String executionId) {
+			this.executionId = executionId;
+		}
+
+		protected String getWorkflowId() {
+			return workflowId;
+		}
+
+		protected void setWorkflowId(String workflowId) {
+			this.workflowId = workflowId;
+		}
+
+		protected ExecutionStatus getExecutionStatus() {
+			return status;
+		}
+		
+		protected void setExecutionStatus(ExecutionStatus status) {
+			this.status = status;
 		}
 	}
 }
