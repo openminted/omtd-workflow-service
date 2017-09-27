@@ -49,6 +49,8 @@ public interface HistoriesClient {
    *         verified for success.
    */
   ClientResponse deleteHistoryRequest(String historyId);
+  
+  ClientResponse deleteHistoryRequest(String historyId, boolean purge);
 
   /**
    * Deletes the given History from Galaxy (this will not purge). This will
@@ -60,6 +62,8 @@ public interface HistoriesClient {
    * @return A {@link HistoryDeleteResponse} for this request.
    */
   HistoryDeleteResponse deleteHistory(String historyId);
+  
+  HistoryDeleteResponse deleteHistory(String historyId, boolean purge);
   
   /**
    * Gets a Dataset collection for the given historyId and datasetCollectionId.

@@ -65,7 +65,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 	private static final Logger log = LoggerFactory.getLogger(WorkflowServiceImpl.class);
 
 	public final static String UNSET = "<UNSET>";
-	
+
 	private GalaxyInstance galaxy = null;
 
 	// TODO how does this ever shrink?
@@ -93,6 +93,9 @@ public class WorkflowServiceImpl implements WorkflowService {
 	@Value("${galaxy.ftp.dir:" + UNSET + "}")
 	String galaxyFTPdir;
 
+	@Value("${omtd.workflow.debug:true}")
+	Boolean debug = Boolean.TRUE;
+
 	public WorkflowServiceImpl() {
 		log.info("Implementation:" + WorkflowServiceImpl.class.getName());
 	}
@@ -114,9 +117,9 @@ public class WorkflowServiceImpl implements WorkflowService {
 		log.info("execute started");
 
 		final String workflowExecutionId = UUID.randomUUID().toString();
-		
+
 		statusMonitor.put(workflowExecutionId, new WorkflowExecution(workflowExecutionId));
-		
+
 		updateStatus(new ExecutionStatus(Status.PENDING), workflowExecutionId, TopicsRegistry.workflowsExecution);
 
 		log.info("Starting workflow execution " + workflowExecutionId + " using Galaxy instance at "
@@ -156,7 +159,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 				}
 
 				log.info("Workflow ID: " + workflow.getId());
-				
+
 				statusMonitor.get(workflowExecutionId).setWorkflowId(workflow.getId());
 
 				/**
@@ -169,7 +172,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 				if (!shouldContinue(workflowExecutionId))
 					return;
-				
+
 				final History history = getGalaxy().getHistoriesClient()
 						.create(new History("OpenMinTeD - " + (new Date())));
 
@@ -193,7 +196,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					updateStatus(new ExecutionStatus(e), workflowExecutionId, TopicsRegistry.workflowsExecution);
 					return;
 				}
-				
+
 				if (!shouldContinue(workflowExecutionId))
 					return;
 
@@ -282,7 +285,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					updateStatus(new ExecutionStatus(e), workflowExecutionId, TopicsRegistry.workflowsExecution);
 					return;
 				}
-				
+
 				if (!shouldContinue(workflowExecutionId))
 					return;
 
@@ -316,18 +319,16 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 					if (!shouldContinue(workflowExecutionId))
 						return;
-					
+
 					log.info("Run workflow");
 
-					
-					
 					WorkflowInvocation workflowInvocation = getGalaxy().getWorkflowsClient()
 							.invokeWorkflow(workflowInputs);
 
 					String invocationID = workflowInvocation.getId();
-					
+
 					statusMonitor.get(workflowExecutionId).setInvocationId(invocationID);
-					
+
 					log.info("invocationID for " + workflow.getId() + " " + invocationID);
 
 					log.info("count tools");
@@ -340,7 +341,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 					if (!shouldContinue(workflowExecutionId))
 						return;
-					
+
 					if (outputs == null) {
 						// we failed to get the outputs
 						log.debug("error", "there were no outputs from the invocation");
@@ -353,10 +354,10 @@ public class WorkflowServiceImpl implements WorkflowService {
 					// TODO do we still need this check now we check the
 					// invocation ouput?
 					waitForHistory(history.getId());
-					
+
 					if (!shouldContinue(workflowExecutionId))
 						return;
-					
+
 					// Jobs for this history have been completed
 					// Also history is OK.
 					// So, start downloading
@@ -372,7 +373,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 				if (!shouldContinue(workflowExecutionId))
 					return;
-				
+
 				try {
 					String archiveID = uploadArchive(storeClient, outputDir);
 
@@ -386,10 +387,20 @@ public class WorkflowServiceImpl implements WorkflowService {
 					return;
 				}
 
-				// TODO if we get to here then everything worked correctly, yay!
-				// But what now? What cleanup should we do? Do we delete the
-				// Galaxy history, the files uploaded via FTP, what about the
-				// execution status map
+				// TODO this should probably be in a try/finally so we clean up
+				// even if we error out part way through unless we are in debug
+				// mode when we will risk running out of disk space etc.
+				if (!debug) {
+					// remove ourselves from the status monitor as the corpus ID
+					// will have been passed back to the registry at this point
+					// via the message queue
+					statusMonitor.remove(workflowExecutionId);
+
+					// we no longer need the Galaxy history so we can delete
+					// that as well to free up space on the Galaxy server and
+					// so we don't run out of space on the NFS
+					getGalaxy().getHistoriesClient().deleteHistory(history.getId(), true);
+				}
 			}
 		};
 
@@ -453,15 +464,16 @@ public class WorkflowServiceImpl implements WorkflowService {
 			return;
 
 		WorkflowExecution workflowExecution = statusMonitor.get(workflowExecutionId);
-				
+
 		Status status = workflowExecution.getExecutionStatus().getStatus();
-		
+
 		// you can't cancel if the workflow has finished or failed
 		if (status.equals(Status.FINISHED) || status.equals(Status.FAILED))
 			return;
-		
+
 		if (workflowExecution.getInvocationId() != null) {
-			//if we've actually invoked the workflow in Galaxy then lets try and cancel that
+			// if we've actually invoked the workflow in Galaxy then lets try
+			// and cancel that
 			getGalaxy().getWorkflowsClient().cancelWorkflowInvocation(workflowExecution.getWorkflowId(),
 					workflowExecution.getInvocationId());
 		}
@@ -473,7 +485,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 	public void pause(String workflowExecutionId) throws WorkflowException {
 		if (!statusMonitor.containsKey(workflowExecutionId))
 			return;
-		
+
 		Status status = statusMonitor.get(workflowExecutionId).getExecutionStatus().getStatus();
 
 		// you can't pause unless the workflow is pending or running
@@ -489,7 +501,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 			return;
 
 		Status status = statusMonitor.get(workflowExecutionId).getExecutionStatus().getStatus();
-		
+
 		// you can't resume a workflow that isn't paused
 		if (!status.equals(Status.PAUSED))
 			return;
@@ -788,30 +800,26 @@ public class WorkflowServiceImpl implements WorkflowService {
 			// return;
 		}
 	}
-	
+
 	private static class WorkflowExecution {
 		private String executionId, workflowId, invocationId;
-		
+
 		private ExecutionStatus status;
-		
+
 		protected WorkflowExecution(String executionId) {
 			this.executionId = executionId;
 		}
-		
+
 		protected String getInvocationId() {
 			return invocationId;
 		}
-		
+
 		protected void setInvocationId(String invocationId) {
 			this.invocationId = invocationId;
-		}		
-		
-		protected String getExecutionId() {
-			return executionId;
 		}
 
-		protected void setExecutionId(String executionId) {
-			this.executionId = executionId;
+		protected String getExecutionId() {
+			return executionId;
 		}
 
 		protected String getWorkflowId() {
@@ -825,7 +833,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 		protected ExecutionStatus getExecutionStatus() {
 			return status;
 		}
-		
+
 		protected void setExecutionStatus(ExecutionStatus status) {
 			this.status = status;
 		}

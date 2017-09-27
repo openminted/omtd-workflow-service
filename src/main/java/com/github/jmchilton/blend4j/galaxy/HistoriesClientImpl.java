@@ -6,6 +6,8 @@ import java.io.IOException;
 import java.util.List;
 
 import org.codehaus.jackson.type.TypeReference;
+import org.springframework.scheduling.support.DelegatingErrorHandlingRunnable;
+import org.springframework.web.context.request.WebRequest;
 
 import com.github.jmchilton.blend4j.galaxy.beans.Dataset;
 import com.github.jmchilton.blend4j.galaxy.beans.HistoryDeleteResponse;
@@ -123,13 +125,27 @@ class HistoriesClientImpl extends Client implements HistoriesClient {
     fr.close();
   }
 
-  @Override
-  public ClientResponse deleteHistoryRequest(String historyId) {
-  	return deleteResponse(getWebResource(historyId));
-  }
+  	@Override
+  	public ClientResponse deleteHistoryRequest(String historyId) {
+  		return deleteHistoryRequest(historyId, false);
+  	}
   
-  @Override
-  public HistoryDeleteResponse deleteHistory(String historyId) {
-    return deleteHistoryRequest(historyId).getEntity(HistoryDeleteResponse.class);
-  }
+	@Override
+	public ClientResponse deleteHistoryRequest(String historyId, boolean purge) {
+		WebResource request = getWebResource(historyId);
+		if (purge)
+			request.queryParam("purge", "True");
+
+		return deleteResponse(getWebResource(historyId));
+	}
+  
+	@Override
+	public HistoryDeleteResponse deleteHistory(String historyId) {
+		return deleteHistory(historyId, false);
+	}
+	
+	@Override
+	public HistoryDeleteResponse deleteHistory(String historyId, boolean purge) {
+		return deleteHistoryRequest(historyId, purge).getEntity(HistoryDeleteResponse.class);
+	}
 }
