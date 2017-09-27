@@ -16,6 +16,7 @@ import com.github.jmchilton.blend4j.galaxy.GalaxyInstanceFactory;
 import com.github.jmchilton.blend4j.galaxy.HistoriesClient;
 import com.github.jmchilton.blend4j.galaxy.ToolsClient;
 import com.github.jmchilton.blend4j.galaxy.beans.History;
+import com.github.jmchilton.blend4j.galaxy.beans.HistoryDeleteResponse;
 import com.github.jmchilton.blend4j.galaxy.beans.ToolExecution;
 import com.github.jmchilton.blend4j.galaxy.beans.ToolInputs;
 
@@ -102,6 +103,27 @@ public class WorkflowServiceImplTest extends TestCase {
 
 		service.delete(workflow);
 
+	}
+	
+	@Test
+	public void testHistoryDeletion() throws Exception {
+		GalaxyInstance galaxyInstance = GalaxyInstanceFactory.get("http://localhost:8080",
+				"0403419ce354f40ff6503176c81ebbaf");
+		
+		HistoriesClient historiesClient = galaxyInstance.getHistoriesClient();
+		
+		History history = new History("Deletion Test " + (new Date()));
+		history = historiesClient.create(history);
+		
+		HistoryDeleteResponse deleteResponse = historiesClient.deleteHistory(history.getId());
+		
+		assertTrue("hisotry not deleted", deleteResponse.getDeleted());
+		assertFalse("hisotry purged when it should only have been deleted", deleteResponse.getPurged());
+		
+		deleteResponse = historiesClient.deleteHistory(history.getId(),true);
+		
+		assertTrue("hisotry not deleted", deleteResponse.getDeleted());
+		assertTrue("hisotry not purged", deleteResponse.getPurged());
 	}
 
 	@Test
