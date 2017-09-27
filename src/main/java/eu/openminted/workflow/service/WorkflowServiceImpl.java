@@ -18,6 +18,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -400,6 +401,18 @@ public class WorkflowServiceImpl implements WorkflowService {
 					// that as well to free up space on the Galaxy server and
 					// so we don't run out of space on the NFS
 					getGalaxy().getHistoriesClient().deleteHistory(history.getId(), true);
+
+					if (galaxyFTPdir != null && !galaxyFTPdir.equals(UNSET)) {
+						// if we used the FTP upload option then delete the
+						// folder we created for this invocation
+						try {
+							Path path = Paths.get(galaxyFTPdir, galaxyUserEmail, workflowExecutionId);
+							FileUtils.deleteDirectory(path.toFile());
+						} catch (IOException e) {
+							// if we can't delete the files then so what?
+							log.warn("unable to delete all files from FTP folder", e);
+						}
+					}
 				}
 			}
 		};
