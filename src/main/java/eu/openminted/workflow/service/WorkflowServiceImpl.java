@@ -69,7 +69,6 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 	private GalaxyInstance galaxy = null;
 
-	// TODO how does this ever shrink?
 	private static Map<String, WorkflowExecution> statusMonitor = new HashMap<String, WorkflowExecution>();
 
 	// @Autowired
