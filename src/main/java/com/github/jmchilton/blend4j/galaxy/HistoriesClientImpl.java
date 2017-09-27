@@ -134,9 +134,9 @@ class HistoriesClientImpl extends Client implements HistoriesClient {
 	public ClientResponse deleteHistoryRequest(String historyId, boolean purge) {
 		WebResource request = getWebResource(historyId);
 		if (purge)
-			request.queryParam("purge", "True");
+			request = request.queryParam("purge", "True");
 
-		return deleteResponse(getWebResource(historyId));
+		return deleteResponse(request);
 	}
   
 	@Override
