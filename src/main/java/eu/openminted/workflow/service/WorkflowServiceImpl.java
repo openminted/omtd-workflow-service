@@ -265,7 +265,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 									dataset = uploadFileToHistory(history.getId(), path.toFile());
 
 								} finally {
-									if (path != null && debug)
+									if (path != null && !debug)
 										Files.delete(path);
 								}
 							}
