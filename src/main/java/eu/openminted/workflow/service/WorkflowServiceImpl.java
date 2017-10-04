@@ -565,6 +565,8 @@ public class WorkflowServiceImpl implements WorkflowService {
 		if (galaxy != null)
 			return galaxy;
 
+		log.info("galaxyInstanceUrl:" + galaxyInstanceUrl);
+		log.info("galaxyApiKey:" + galaxyApiKey);
 		galaxy = GalaxyInstanceFactory.get(galaxyInstanceUrl, galaxyApiKey);
 
 		return galaxy;
