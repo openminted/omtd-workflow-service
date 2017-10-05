@@ -118,6 +118,10 @@
 
 	<repositories>
 		<repository>
+			<id>central</id>
+			<url>http://central.maven.org/maven2/</url>
+		</repository>
+		<repository>
 			<id>omtd-snapshots</id>
 			<layout>default</layout>
 			<url>https://repo.openminted.eu/content/repositories/snapshots/</url>
