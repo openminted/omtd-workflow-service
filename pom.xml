@@ -193,7 +193,6 @@
         			</configuration>
 			</plugin>
 		</plugins>
-		
-		
+		<finalName>omtd-workflow-service</finalName>
 	</build>
 </project>
