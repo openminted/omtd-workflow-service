@@ -15,6 +15,7 @@ import com.github.jmchilton.blend4j.galaxy.GalaxyInstance;
 import com.github.jmchilton.blend4j.galaxy.GalaxyInstanceFactory;
 import com.github.jmchilton.blend4j.galaxy.HistoriesClient;
 import com.github.jmchilton.blend4j.galaxy.ToolsClient;
+import com.github.jmchilton.blend4j.galaxy.WorkflowsClient;
 import com.github.jmchilton.blend4j.galaxy.beans.History;
 import com.github.jmchilton.blend4j.galaxy.beans.HistoryDeleteResponse;
 import com.github.jmchilton.blend4j.galaxy.beans.ToolExecution;
@@ -124,6 +125,16 @@ public class WorkflowServiceImplTest extends TestCase {
 		
 		assertTrue("hisotry not deleted", deleteResponse.getDeleted());
 		assertTrue("hisotry not purged", deleteResponse.getPurged());
+	}
+	
+	@Test
+	public void testWorkflowCreation() throws Exception {
+		GalaxyInstance galaxy = GalaxyInstanceFactory.get("http://localhost:8080",
+				"0403419ce354f40ff6503176c81ebbaf");
+		
+		WorkflowsClient workflowsClient = galaxy.getWorkflowsClient();
+		
+		workflowsClient.createWorkflow("OMTD Workflow "+(new Date()));
 	}
 
 	@Test

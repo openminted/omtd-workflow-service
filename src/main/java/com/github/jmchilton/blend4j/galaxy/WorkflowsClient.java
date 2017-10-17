@@ -50,4 +50,6 @@ public interface WorkflowsClient {
    *         verified for success.
    */
   ClientResponse deleteWorkflow(String id);
+  
+  ClientResponse createWorkflow(String name);
 }

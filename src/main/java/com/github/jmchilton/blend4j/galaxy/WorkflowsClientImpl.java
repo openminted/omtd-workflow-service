@@ -85,4 +85,9 @@ class WorkflowsClientImpl extends Client implements WorkflowsClient {
   public ClientResponse cancelWorkflowInvocation(String workflowId, String invocationId) {
 	  return deleteResponse(getWebResource().path(workflowId).path("invocations").path(invocationId));
   }
+  
+  @Override
+	public ClientResponse createWorkflow(String name) {
+		return importWorkflowResponse("{\"name\": \"" + name + "\", \"steps\": {}, \"annotation\": \"\"}");
+	}
 }

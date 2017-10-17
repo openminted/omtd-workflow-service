@@ -77,7 +77,6 @@ public class WorkflowServiceImpl implements WorkflowService {
 	// @Autowired
 	MessageServiceSubscriber messageServiceSubscriber;
 
-	// these should probably both be set via injection
 	@Value("${galaxy.url}")
 	String galaxyInstanceUrl;
 
@@ -96,7 +95,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 	@Value("${omtd.workflow.debug:true}")
 	Boolean debug = Boolean.TRUE;
 
-	public WorkflowServiceImpl() {
+	protected WorkflowServiceImpl() {
 		log.info("Implementation:" + WorkflowServiceImpl.class.getName());
 	}
 
@@ -127,6 +126,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 		Runnable runner = new Runnable() {
 
+			@Override
 			public void run() {
 				if (!shouldContinue(workflowExecutionId))
 					return;
