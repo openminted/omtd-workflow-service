@@ -69,7 +69,7 @@ class WorkflowsClientImpl extends Client implements WorkflowsClient {
 
   public ClientResponse importWorkflowResponse(final String json) {
     final String payload = String.format("{\"workflow\": %s}", json);
-    return create(getWebResource().path("upload"), payload);
+    return create(getWebResource(), payload);
   }
 
   public Workflow importWorkflow(String json) {
@@ -87,7 +87,7 @@ class WorkflowsClientImpl extends Client implements WorkflowsClient {
   }
   
   @Override
-	public ClientResponse createWorkflow(String name) {
-		return importWorkflowResponse("{\"name\": \"" + name + "\", \"steps\": {}, \"annotation\": \"\"}");
+	public Workflow createWorkflow(String name) {
+		return importWorkflow("{\"name\": \"" + name + "\", \"steps\": {}, \"annotation\": \"\"}");
 	}
 }

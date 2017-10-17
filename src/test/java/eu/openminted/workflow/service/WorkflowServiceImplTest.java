@@ -20,6 +20,7 @@ import com.github.jmchilton.blend4j.galaxy.beans.History;
 import com.github.jmchilton.blend4j.galaxy.beans.HistoryDeleteResponse;
 import com.github.jmchilton.blend4j.galaxy.beans.ToolExecution;
 import com.github.jmchilton.blend4j.galaxy.beans.ToolInputs;
+import com.github.jmchilton.blend4j.galaxy.beans.Workflow;
 
 import eu.openminted.registry.domain.Component;
 import eu.openminted.registry.domain.MetadataHeaderInfo;
@@ -134,7 +135,8 @@ public class WorkflowServiceImplTest extends TestCase {
 		
 		WorkflowsClient workflowsClient = galaxy.getWorkflowsClient();
 		
-		workflowsClient.createWorkflow("OMTD Workflow "+(new Date()));
+		Workflow workflow = workflowsClient.createWorkflow("OMTD Workflow "+(new Date()));
+		System.out.println(workflow.getId());
 	}
 
 	@Test

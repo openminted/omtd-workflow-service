@@ -51,5 +51,5 @@ public interface WorkflowsClient {
    */
   ClientResponse deleteWorkflow(String id);
   
-  ClientResponse createWorkflow(String name);
+  Workflow createWorkflow(String name);
 }
