@@ -176,150 +176,164 @@ public class WorkflowServiceImpl implements WorkflowService {
 				final History history = getGalaxy().getHistoriesClient()
 						.create(new History("OpenMinTeD - " + (new Date())));
 
-				File corpusZip;
-				try {
-					corpusZip = File.createTempFile("corpus", ".zip");
-					String corpusZipFileName = corpusZip.getAbsolutePath();
-					corpusZip.delete();
-					log.info("download:" + corpusId + " to " + corpusZipFileName + " from " + storeEndpoint);
-					StoreResponse storeResponse = storeClient.downloadArchive(corpusId, corpusZipFileName);
+				boolean workflowContainsImporter = workflow.getSteps().get("0").getToolID().equals("omtdImporter");
+				
+				log.info("Workflow starts with OMTD Importer: " + workflowContainsImporter);
 
-					if (!storeResponse.getResponse().startsWith("true")) {
-						throw new IOException("Problem on downloading from STORE.");
-					}
-					log.info("corpusZipFileName:" + corpusZipFileName);
-					log.info("corpusId:" + corpusId);
+				WorkflowInvocationInputs workflowInputs = new WorkflowInvocationInputs();
+				workflowInputs.setDestination(new WorkflowInputs.ExistingHistory(history.getId()));
+				workflowInputs.setWorkflowId(workflow.getId());
 
-				} catch (IOException e) {
-					log.info("Unable to retrieve specified corpus with ID " + corpusId, e);
+				if (!workflowContainsImporter) {
 
-					updateStatus(new ExecutionStatus(e), workflowExecutionId, TopicsRegistry.workflowsExecution);
-					return;
-				}
+					File corpusZip;
+					try {
+						corpusZip = File.createTempFile("corpus", ".zip");
+						String corpusZipFileName = corpusZip.getAbsolutePath();
+						corpusZip.delete();
+						log.info("download:" + corpusId + " to " + corpusZipFileName + " from " + storeEndpoint);
+						StoreResponse storeResponse = storeClient.downloadArchive(corpusId, corpusZipFileName);
 
-				if (!shouldContinue(workflowExecutionId))
-					return;
-
-				CollectionDescription collectionDescription = new CollectionDescription();
-				collectionDescription.setCollectionType("list");
-				collectionDescription.setName(history.getId() + "collection");
-
-				try (FileSystem zipFs = FileSystems.newFileSystem(new URI("jar:" + corpusZip.getAbsoluteFile().toURI()),
-						new HashMap<>());) {
-
-					Path pathInZip = zipFs.getPath("/" + corpusId, "fulltext");
-
-					Files.walkFileTree(pathInZip, new SimpleFileVisitor<Path>() {
-						@Override
-						public FileVisitResult visitFile(Path filePath, BasicFileAttributes attrs) throws IOException {
-
-							// TODO check how filenames get used if there is a
-							// folder inside fulltext as we don't want name
-							// clashes if we end up flattening the dir structure
-
-							OutputDataset dataset = null;
-							Path path = null;
-
-							if (galaxyFTPdir != null && !galaxyFTPdir.equals(UNSET)) {
-								log.info("galaxyFTPdir:" + galaxyFTPdir);
-								// it looks as if FTP support in Galaxy has been
-								// enabled so we'll use that rather than doing
-								// an HTTP upload which can be very slow
-
-								// firstly we create a path to store this
-								// specific file inside a folder named for the
-								// Galaxy user's email address, and the workflow
-								// execution ID
-								path = Paths.get(galaxyFTPdir, galaxyUserEmail, workflowExecutionId,
-										filePath.getFileName().toString());
-
-								path.toFile().getParentFile().mkdirs();
-
-								log.info("Copying file into FTP folder: " + path.toFile().getAbsolutePath().toString());
-
-								// then we copy the file out of the zip
-								path = Files.copy(filePath, path, StandardCopyOption.REPLACE_EXISTING);
-
-								// once the file copy has completed Galaxy
-								// should be able to see the file (the FTP
-								// folder should be a shared filesystem between
-								// this service and Galaxy) so we can just
-								// attach the file to the history
-								dataset = attachFTPUploadToHistory(history,
-										workflowExecutionId + "/" + filePath.getFileName().toString());
-
-							} else {
-								// the Galaxy FTP folder isn't configured so
-								// we'll need to upload the files directly into
-								// the history
-
-								// create a tmp file to hold the file from the
-								// zip while we upload it to Galaxy
-
-								try {
-									log.info("Creating temp file:" + filePath.getFileName().toString());
-									path = Files.createTempFile(null, filePath.getFileName().toString());
-									path = Files.copy(filePath, path, StandardCopyOption.REPLACE_EXISTING);
-									log.info("Uploading..." + path.toFile().getAbsolutePath());
-									dataset = uploadFileToHistory(history.getId(), path.toFile());
-
-								} finally {
-									if (path != null && !debug)
-										Files.delete(path);
-								}
-							}
-
-							HistoryDatasetElement element = new HistoryDatasetElement();
-							element.setId(dataset.getId());
-							element.setName(path.toFile().getName());
-							collectionDescription.addDatasetElement(element);
-
-							return FileVisitResult.CONTINUE;
-
+						if (!storeResponse.getResponse().startsWith("true")) {
+							throw new IOException("Problem on downloading from STORE.");
 						}
-					});
+						log.info("corpusZipFileName:" + corpusZipFileName);
+						log.info("corpusId:" + corpusId);
 
-				} catch (IOException | URISyntaxException e) {
-					log.error("Unable to upload corpus to Galaxy history", e);
+					} catch (IOException e) {
+						log.info("Unable to retrieve specified corpus with ID " + corpusId, e);
 
-					updateStatus(new ExecutionStatus(e), workflowExecutionId, TopicsRegistry.workflowsExecution);
-					return;
+						updateStatus(new ExecutionStatus(e), workflowExecutionId, TopicsRegistry.workflowsExecution);
+						return;
+					}
+
+					if (!shouldContinue(workflowExecutionId))
+						return;
+
+					CollectionDescription collectionDescription = new CollectionDescription();
+					collectionDescription.setCollectionType("list");
+					collectionDescription.setName(history.getId() + "collection");
+
+					try (FileSystem zipFs = FileSystems
+							.newFileSystem(new URI("jar:" + corpusZip.getAbsoluteFile().toURI()), new HashMap<>());) {
+
+						Path pathInZip = zipFs.getPath("/" + corpusId, "fulltext");
+
+						Files.walkFileTree(pathInZip, new SimpleFileVisitor<Path>() {
+							@Override
+							public FileVisitResult visitFile(Path filePath, BasicFileAttributes attrs)
+									throws IOException {
+
+								// TODO check how filenames get used if there is
+								// a
+								// folder inside fulltext as we don't want name
+								// clashes if we end up flattening the dir
+								// structure
+
+								OutputDataset dataset = null;
+								Path path = null;
+
+								if (galaxyFTPdir != null && !galaxyFTPdir.equals(UNSET)) {
+									log.info("galaxyFTPdir:" + galaxyFTPdir);
+									// it looks as if FTP support in Galaxy has
+									// been
+									// enabled so we'll use that rather than
+									// doing
+									// an HTTP upload which can be very slow
+
+									// firstly we create a path to store this
+									// specific file inside a folder named for
+									// the
+									// Galaxy user's email address, and the
+									// workflow
+									// execution ID
+									path = Paths.get(galaxyFTPdir, galaxyUserEmail, workflowExecutionId,
+											filePath.getFileName().toString());
+
+									path.toFile().getParentFile().mkdirs();
+
+									log.info("Copying file into FTP folder: "
+											+ path.toFile().getAbsolutePath().toString());
+
+									// then we copy the file out of the zip
+									path = Files.copy(filePath, path, StandardCopyOption.REPLACE_EXISTING);
+
+									// once the file copy has completed Galaxy
+									// should be able to see the file (the FTP
+									// folder should be a shared filesystem
+									// between
+									// this service and Galaxy) so we can just
+									// attach the file to the history
+									dataset = attachFTPUploadToHistory(history,
+											workflowExecutionId + "/" + filePath.getFileName().toString());
+
+								} else {
+									// the Galaxy FTP folder isn't configured so
+									// we'll need to upload the files directly
+									// into
+									// the history
+
+									// create a tmp file to hold the file from
+									// the
+									// zip while we upload it to Galaxy
+
+									try {
+										log.info("Creating temp file:" + filePath.getFileName().toString());
+										path = Files.createTempFile(null, filePath.getFileName().toString());
+										path = Files.copy(filePath, path, StandardCopyOption.REPLACE_EXISTING);
+										log.info("Uploading..." + path.toFile().getAbsolutePath());
+										dataset = uploadFileToHistory(history.getId(), path.toFile());
+
+									} finally {
+										if (path != null && !debug)
+											Files.delete(path);
+									}
+								}
+
+								HistoryDatasetElement element = new HistoryDatasetElement();
+								element.setId(dataset.getId());
+								element.setName(path.toFile().getName());
+								collectionDescription.addDatasetElement(element);
+
+								return FileVisitResult.CONTINUE;
+
+							}
+						});
+
+					} catch (IOException | URISyntaxException e) {
+						log.error("Unable to upload corpus to Galaxy history", e);
+
+						updateStatus(new ExecutionStatus(e), workflowExecutionId, TopicsRegistry.workflowsExecution);
+						return;
+					}
+
+					if (!shouldContinue(workflowExecutionId))
+						return;
+
+					CollectionResponse inputCollection = getGalaxy().getHistoriesClient()
+							.createDatasetCollection(history.getId(), collectionDescription);
+
+					String workflowInputId = getWorkflowInputId(workflow, "Input Dataset Collection");
+
+					log.info("Configuring input");
+
+					workflowInputs.setInput(workflowInputId, new WorkflowInputs.WorkflowInput(inputCollection.getId(),
+							WorkflowInputs.InputSourceType.HDCA));
 				}
+				else {
+					log.info("Setting corpus ID on omtdImporter");
+					workflowInputs.setStepParameter("0","omtdStoreCorpusID",corpusId);
+				}
+
+				//setParameters(workflow, workflowInputs);
+				printDetails(workflow, workflowInputs);
 
 				if (!shouldContinue(workflowExecutionId))
 					return;
 
 				Path outputDir = null;
 
-				CollectionResponse inputCollection = getGalaxy().getHistoriesClient()
-						.createDatasetCollection(history.getId(), collectionDescription);
-
 				try {
-					outputDir = Files.createTempDirectory("omtd-workflow-output");
-				} catch (IOException e) {
-					log.error("Unable to create annotations output dir", e);
-
-					updateStatus(new ExecutionStatus(e), workflowExecutionId, TopicsRegistry.workflowsExecution);
-					return;
-				}
-
-				try {
-
-					String workflowInputId = getWorkflowInputId(workflow, "Input Dataset Collection");
-
-					log.info("Configuring input");
-					WorkflowInvocationInputs workflowInputs = new WorkflowInvocationInputs();
-					workflowInputs.setDestination(new WorkflowInputs.ExistingHistory(history.getId()));
-					workflowInputs.setWorkflowId(workflow.getId());
-					workflowInputs.setInput(workflowInputId, new WorkflowInputs.WorkflowInput(inputCollection.getId(),
-							WorkflowInputs.InputSourceType.HDCA));
-
-					setParameters(workflow, workflowInputs);
-					printDetails(workflow, workflowInputs);
-
-					if (!shouldContinue(workflowExecutionId))
-						return;
-
 					log.info("Run workflow");
 
 					WorkflowInvocation workflowInvocation = getGalaxy().getWorkflowsClient()
@@ -357,6 +371,15 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 					if (!shouldContinue(workflowExecutionId))
 						return;
+
+					try {
+						outputDir = Files.createTempDirectory("omtd-workflow-output");
+					} catch (IOException e) {
+						log.error("Unable to create annotations output dir", e);
+
+						updateStatus(new ExecutionStatus(e), workflowExecutionId, TopicsRegistry.workflowsExecution);
+						return;
+					}
 
 					// Jobs for this history have been completed
 					// Also history is OK.

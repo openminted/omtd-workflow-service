@@ -34,7 +34,7 @@ public class WorkflowStepDefinition {
   }
 
   private Map<String, WorkflowStepOutput> inputSteps;
-  private String type; // data_input or tool
+  private String type, toolID; // data_input or tool
   
   @JsonProperty("input_steps")
   public void setInputSteps(final Map<String, WorkflowStepOutput> inputSteps) {
@@ -52,5 +52,13 @@ public class WorkflowStepDefinition {
   public void setType(String type) {
     this.type = type;
   }
+  
+  public String getToolID() {
+	  return toolID;
+  }
     
+  @JsonProperty("tool_id")
+  public void setToolID(String toolID) {
+	  this.toolID = toolID;
+  }
 }
