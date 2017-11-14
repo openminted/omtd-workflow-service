@@ -104,6 +104,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 		log.info("Implementation:" + WorkflowServiceImpl.class.getName());
 
 		this.messageServicePublisher = messageServicePublisher;
+		log.info("Message service publisher " + messageServicePublisher );
 		this.messageServiceSubscriber = messageServiceSubscriber;
 
 		// Not the appropriate topics (used for testing).
@@ -119,7 +120,12 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 		statusMonitor.put(workflowExecutionId, new WorkflowExecution(workflowExecutionId));
 
-		updateStatus(new ExecutionStatus(Status.PENDING), workflowExecutionId, TopicsRegistry.workflowsExecution);
+		ExecutionStatus exeStatus =  new ExecutionStatus(Status.PENDING);
+		exeStatus.setCorpusID(workflowJob.getCorpusId());
+		// TODO fix userID getting it from workflowJob (when connection to redis exist)
+		exeStatus.setUserID("0931731143127784@openminted.eu");
+		exeStatus.setWorkflowId(workflowJob.getWorkflow().getMetadataHeaderInfo().getMetadataRecordIdentifier().getValue());
+		updateStatus(exeStatus, workflowExecutionId, TopicsRegistry.workflowsExecution);
 
 		log.info("Starting workflow execution " + workflowExecutionId + " using Galaxy instance at "
 				+ galaxyInstanceUrl);
@@ -136,12 +142,12 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 				StoreRESTClient storeClient = new StoreRESTClient(storeEndpoint);
 
-				/**
-				 * get workflow from job, it's a Component instance so will then
-				 * need to get it out of there. question is what does that
-				 * object contain and where is the workflow file actually
-				 * stored?
-				 **/
+				
+				// * get workflow from job, it's a Component instance so will then
+				// * need to get it out of there. question is what does that
+				// * object contain and where is the workflow file actually
+				// * stored?
+				 
 
 				String workflowName = workflowJob.getWorkflow().getMetadataHeaderInfo().getMetadataRecordIdentifier()
 						.getValue();
@@ -162,11 +168,11 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 				statusMonitor.get(workflowExecutionId).setWorkflowId(workflow.getId());
 
-				/**
-				 * download the corpus from the OMTD-STORE using the REST
-				 * client. This should get us a folder but not sure the format
-				 * of the contents has been fixed yet
-				 **/
+				//
+				// * download the corpus from the OMTD-STORE using the REST
+				// * client. This should get us a folder but not sure the format
+				// * of the contents has been fixed yet
+				// *
 
 				String corpusId = workflowJob.getCorpusId();
 
@@ -401,7 +407,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					String archiveID = uploadArchive(storeClient, outputDir);
 
 					updateStatus(new ExecutionStatus(archiveID), workflowExecutionId,
-							TopicsRegistry.workflowsExecutionCompleted);
+							TopicsRegistry.workflowsExecution);
 
 				} catch (IOException e) {
 					log.info("unable to store workflow results", e);
@@ -461,11 +467,17 @@ public class WorkflowServiceImpl implements WorkflowService {
 			WorkflowExecutionStatusMessage msg = new WorkflowExecutionStatusMessage();
 			msg.setWorkflowExecutionID(workflowExecutionId);
 			msg.setWorkflowStatus(status.toString());
-
-			if (Status.FINISHED.equals(status)) {
+			
+			if (Status.PENDING.equals(status)) {
+				msg.setCorpusID(executionStatus.getCorpusID());
+				msg.setUserID(executionStatus.getUserID());
+				msg.setWorkflowID(executionStatus.getWorkflowId());
+			} 
+			else if (Status.FINISHED.equals(status)) {
 				msg.setResultingCorpusID(executionStatus.getCorpusID());
 			}
 
+			
 			messageServicePublisher.publishMessage(topic, msg);
 			log.info("updateStatus:" + topic + "-->" + status + " DONE");
 		} catch (Exception e) {

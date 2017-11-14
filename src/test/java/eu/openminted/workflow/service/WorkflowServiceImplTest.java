@@ -9,6 +9,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.junit.Ignore;
 import org.junit.Test;
 
 import com.github.jmchilton.blend4j.galaxy.GalaxyInstance;
@@ -22,6 +23,8 @@ import com.github.jmchilton.blend4j.galaxy.beans.ToolExecution;
 import com.github.jmchilton.blend4j.galaxy.beans.ToolInputs;
 import com.github.jmchilton.blend4j.galaxy.beans.Workflow;
 
+import eu.openminted.messageservice.connector.MessageServicePublisher;
+import eu.openminted.messageservice.connector.MessageServiceSubscriber;
 import eu.openminted.registry.domain.Component;
 import eu.openminted.registry.domain.MetadataHeaderInfo;
 import eu.openminted.registry.domain.MetadataIdentifier;
@@ -223,6 +226,7 @@ public class WorkflowServiceImplTest extends TestCase {
 		assertNull(status.getFailureCause());
 	}
 
+
 	private String uploadArchive(StoreRESTClient storeClient, Path archiveData) throws IOException {
 		String archiveID = storeClient.createArchive().getResponse();
 		String annotationsFolderId = storeClient.createSubArchive(archiveID, "fulltext").getResponse();
@@ -236,4 +240,32 @@ public class WorkflowServiceImplTest extends TestCase {
 		return archiveID;
 	}
 
+	
+	public void testCommunicationWithRegistry() throws WorkflowException, InterruptedException {
+		String msgService = "";
+		MessageServicePublisher msgServicePub = new MessageServicePublisher(msgService);
+		MessageServiceSubscriber msgServiceSub = new MessageServiceSubscriber(msgService);
+		WorkflowServiceImpl workflowService = new WorkflowServiceImpl(msgServicePub, msgServiceSub);
+		workflowService.galaxyInstanceUrl = "";
+		workflowService.galaxyApiKey = "";
+		
+		String executionID = startWorkflow(workflowService, "DemoWF4Metabolites", "OMTD_Demo_Dataset4");
+
+		ExecutionStatus status = null;
+
+		while (true) {
+			status = workflowService.getExecutionStatus(executionID);
+			if (status.getStatus().equals(Status.FINISHED) || status.getStatus().equals(Status.FAILED)
+					|| status.getStatus().equals(Status.CANCELED)) {
+				break;
+			}
+
+			Thread.sleep(200L);
+		}
+
+		assertEquals(Status.FINISHED, status.getStatus());
+		assertNotNull(status.getCorpusID());
+		assertNull(status.getFailureCause());
+	}
+	
 }

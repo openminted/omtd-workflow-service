@@ -50,10 +50,12 @@
 		
 		
 		<dependency>
-			<!-- this isn't in our repo yet so pull straight from github for now -->
-			<groupId>com.github.openminted</groupId>
+			<!-- this isn't in our repo yet so pull straight from github for now 
+			<groupId>com.github.openminted</groupId> -->
+			<groupId>eu.openminted</groupId>
 			<artifactId>omtd-workflow-api</artifactId>
-			<version>-SNAPSHOT</version>
+			<version>1.0.0</version>
+			<!-- <version>-SNAPSHOT</version> -->
 		</dependency>
 		<dependency>
 			<groupId>eu.openminted</groupId>
