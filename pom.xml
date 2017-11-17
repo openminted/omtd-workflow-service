@@ -54,7 +54,7 @@
 			<groupId>com.github.openminted</groupId> -->
 			<groupId>eu.openminted</groupId>
 			<artifactId>omtd-workflow-api</artifactId>
-			<version>1.0.0</version>
+			<version>1.0.1-SNAPSHOT</version>
 			<!-- <version>-SNAPSHOT</version> -->
 		</dependency>
 		<dependency>
