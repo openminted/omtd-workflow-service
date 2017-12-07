@@ -476,8 +476,11 @@ public class WorkflowServiceImpl implements WorkflowService {
 			else if (Status.FINISHED.equals(status)) {
 				msg.setResultingCorpusID(executionStatus.getCorpusID());
 			}
+			else if (Status.FAILED.equals(status)) {
+				msg.setError(executionStatus.getFailureCause().getMessage());
+			}
 
-			
+			log.info("Sending to registry msg ::" + msg.toString());
 			messageServicePublisher.publishMessage(topic, msg);
 			log.info("updateStatus:" + topic + "-->" + status + " DONE");
 		} catch (Exception e) {
@@ -497,7 +500,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 				Thread.sleep(200L);
 				executionStatus = statusMonitor.get(workflowExecutionId).getExecutionStatus().getStatus();
 			} catch (InterruptedException e) {
-				log.error("something went wrong while wating for a paused workflow to be resumed");
+				log.error("something went wrong while waiting for a paused workflow to be resumed");
 				return false;
 			}
 		}

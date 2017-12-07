@@ -38,7 +38,7 @@ import junit.framework.TestCase;
 
 public class WorkflowServiceImplTest extends TestCase {
 
-	@Test
+/*	@Test
 	public void testMultipleDocumentPDFWorkflow() throws WorkflowException, InterruptedException {
 		WorkflowServiceImpl workflowService = new WorkflowServiceImpl();
 		workflowService.galaxyInstanceUrl = "http://snf-754063.vm.okeanos.grnet.gr/";
@@ -64,7 +64,7 @@ public class WorkflowServiceImplTest extends TestCase {
 		assertNotNull(status.getCorpusID());
 		assertNull(status.getFailureCause());
 	}
-
+*/
 	private String startWorkflow(WorkflowService workflowService, String workflowID, String corpusID)
 			throws WorkflowException {
 
@@ -90,7 +90,7 @@ public class WorkflowServiceImplTest extends TestCase {
 		return workflowService.execute(workflowJob);
 
 	}
-
+/*
 	@Test
 	public void testDeleteWorkflow() throws Exception {
 		MetadataIdentifier metadataId = new MetadataIdentifier();
@@ -240,14 +240,14 @@ public class WorkflowServiceImplTest extends TestCase {
 		return archiveID;
 	}
 
-	
+	*/
 	public void testCommunicationWithRegistry() throws WorkflowException, InterruptedException {
-		String msgService = "";
+		String msgService = "tcp://83.212.101.85:61616";
 		MessageServicePublisher msgServicePub = new MessageServicePublisher(msgService);
 		MessageServiceSubscriber msgServiceSub = new MessageServiceSubscriber(msgService);
 		WorkflowServiceImpl workflowService = new WorkflowServiceImpl(msgServicePub, msgServiceSub);
-		workflowService.galaxyInstanceUrl = "";
-		workflowService.galaxyApiKey = "";
+		workflowService.galaxyInstanceUrl = "http://snf-754063.vm.okeanos.grnet.gr";
+		workflowService.galaxyApiKey = "c427e4d7509ae61d70944d9334237cbe";
 		
 		String executionID = startWorkflow(workflowService, "DemoWF4Metabolites", "OMTD_Demo_Dataset4");
 
@@ -263,6 +263,7 @@ public class WorkflowServiceImplTest extends TestCase {
 			Thread.sleep(200L);
 		}
 
+		Thread.sleep(10000L);
 		assertEquals(Status.FINISHED, status.getStatus());
 		assertNotNull(status.getCorpusID());
 		assertNull(status.getFailureCause());
