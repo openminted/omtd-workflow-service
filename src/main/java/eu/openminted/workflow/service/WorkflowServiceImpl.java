@@ -175,6 +175,8 @@ public class WorkflowServiceImpl implements WorkflowService {
 				// *
 
 				String corpusId = workflowJob.getCorpusId();
+				
+				statusMonitor.get(workflowExecutionId).setCorpusId(corpusId);
 
 				if (!shouldContinue(workflowExecutionId))
 					return;
@@ -854,7 +856,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 	}
 
 	private static class WorkflowExecution {
-		private String executionId, workflowId, invocationId;
+		private String executionId, workflowId, invocationId, corpusId;
 
 		private ExecutionStatus status;
 
@@ -881,8 +883,21 @@ public class WorkflowServiceImpl implements WorkflowService {
 		protected void setWorkflowId(String workflowId) {
 			this.workflowId = workflowId;
 		}
+		
+		protected String getCorpusId() {
+			return corpusId;
+		}
+		
+		protected void setCorpusId(String corpusId) {
+			this.corpusId = corpusId;
+		}
 
 		protected ExecutionStatus getExecutionStatus() {
+			if (status != null) {
+				status.setWorkflowId(workflowId);
+				status.setCorpusID(corpusId);
+			}
+			
 			return status;
 		}
 
