@@ -66,6 +66,8 @@ public class WorkflowServiceImpl implements WorkflowService {
 	private static final Logger log = LoggerFactory.getLogger(WorkflowServiceImpl.class);
 
 	public final static String UNSET = "<UNSET>";
+	
+	private static final long WAIT_TIME = 2000;
 
 	private GalaxyInstance galaxy = null;
 
@@ -499,7 +501,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 		while (executionStatus.equals(Status.PAUSED)) {
 			try {
-				Thread.sleep(200L);
+				Thread.sleep(WAIT_TIME);
 				executionStatus = statusMonitor.get(workflowExecutionId).getExecutionStatus().getStatus();
 			} catch (InterruptedException e) {
 				log.error("something went wrong while waiting for a paused workflow to be resumed");
@@ -717,7 +719,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 			}
 
 			// don't hammer the galaxy instance too heavily
-			Thread.sleep(200L);
+			Thread.sleep(WAIT_TIME);
 		}
 
 		// if the history is in an ok state then we can return
@@ -732,7 +734,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 				throw new RuntimeException("history is in the error state so it will never be usable");
 			}
 
-			Thread.sleep(1000L);
+			Thread.sleep(WAIT_TIME);
 
 		}
 	}
@@ -765,7 +767,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 				return null;
 			}
 
-			Thread.sleep(200);
+			Thread.sleep(WAIT_TIME);
 		}
 
 		while (true) {
@@ -820,7 +822,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 				log.info(e.getMessage());
 			}
 
-			Thread.sleep(200);
+			Thread.sleep(WAIT_TIME);
 		}
 	}
 
