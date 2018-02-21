@@ -23,8 +23,6 @@ import com.github.jmchilton.blend4j.galaxy.beans.ToolExecution;
 import com.github.jmchilton.blend4j.galaxy.beans.ToolInputs;
 import com.github.jmchilton.blend4j.galaxy.beans.Workflow;
 
-import eu.openminted.messageservice.connector.MessageServicePublisher;
-import eu.openminted.messageservice.connector.MessageServiceSubscriber;
 import eu.openminted.registry.domain.Component;
 import eu.openminted.registry.domain.MetadataHeaderInfo;
 import eu.openminted.registry.domain.MetadataIdentifier;
@@ -35,9 +33,17 @@ import eu.openminted.workflow.api.WorkflowException;
 import eu.openminted.workflow.api.WorkflowJob;
 import eu.openminted.workflow.api.WorkflowService;
 import junit.framework.TestCase;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jms.core.JmsTemplate;
+import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
+@RunWith(SpringJUnit4ClassRunner.class)
 public class WorkflowServiceImplTest extends TestCase {
 
+
+	@Autowired
+	private JmsTemplate jmsTemplate;
 /*	@Test
 	public void testMultipleDocumentPDFWorkflow() throws WorkflowException, InterruptedException {
 		WorkflowServiceImpl workflowService = new WorkflowServiceImpl();
@@ -242,10 +248,7 @@ public class WorkflowServiceImplTest extends TestCase {
 
 	*/
 	public void testCommunicationWithRegistry() throws WorkflowException, InterruptedException {
-		String msgService = "tcp://83.212.101.85:61616";
-		MessageServicePublisher msgServicePub = new MessageServicePublisher(msgService);
-		MessageServiceSubscriber msgServiceSub = new MessageServiceSubscriber(msgService);
-		WorkflowServiceImpl workflowService = new WorkflowServiceImpl(msgServicePub, msgServiceSub);
+		WorkflowServiceImpl workflowService = new WorkflowServiceImpl(jmsTemplate);
 		workflowService.galaxyInstanceUrl = "http://snf-754063.vm.okeanos.grnet.gr";
 		workflowService.galaxyApiKey = "c427e4d7509ae61d70944d9334237cbe";
 		
