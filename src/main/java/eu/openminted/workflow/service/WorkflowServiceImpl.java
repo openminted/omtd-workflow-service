@@ -396,7 +396,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					return;
 
 				try {
-					String archiveID = uploadArchive(storeClient, outputDir);
+					String archiveID = uploadArchive(storeClient, corpusId, outputDir);
 
 					updateStatus(new ExecutionStatus(archiveID), workflowExecutionId,
 							jmsConfiguration.getWorkflowsExecution());
@@ -568,8 +568,8 @@ public class WorkflowServiceImpl implements WorkflowService {
 		getGalaxy().getWorkflowsClient().deleteWorkflow(workflowDetails.getId());
 	}
 
-	private static String uploadArchive(StoreRESTClient storeClient, Path archiveData) throws IOException {
-		String archiveID = storeClient.createArchive().getResponse();
+	private static String uploadArchive(StoreRESTClient storeClient, String corpusId, Path archiveData) throws IOException {
+		String archiveID = storeClient.cloneArchive(corpusId).getResponse();
 		String annotationsFolderId = storeClient.createSubArchive(archiveID, "annotations").getResponse();
 
 		Files.walk(archiveData).filter(path -> !Files.isDirectory(path)).forEach(path -> {
