@@ -18,7 +18,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-import eu.openminted.workflow.beans.JmsConfiguration;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,14 +50,16 @@ import com.github.jmchilton.blend4j.galaxy.beans.collection.request.CollectionDe
 import com.github.jmchilton.blend4j.galaxy.beans.collection.request.HistoryDatasetElement;
 import com.github.jmchilton.blend4j.galaxy.beans.collection.response.CollectionResponse;
 
-import eu.openminted.workflow.api.WorkflowExecutionStatusMessage;
+import eu.openminted.registry.domain.DataFormatType;
 import eu.openminted.store.common.StoreResponse;
 import eu.openminted.store.restclient.StoreRESTClient;
 import eu.openminted.workflow.api.ExecutionStatus;
 import eu.openminted.workflow.api.ExecutionStatus.Status;
 import eu.openminted.workflow.api.WorkflowException;
+import eu.openminted.workflow.api.WorkflowExecutionStatusMessage;
 import eu.openminted.workflow.api.WorkflowJob;
 import eu.openminted.workflow.api.WorkflowService;
+import eu.openminted.workflow.beans.JmsConfiguration;
 
 @Component
 public class WorkflowServiceImpl implements WorkflowService {
@@ -141,7 +142,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 				String workflowName = workflowJob.getWorkflow().getMetadataHeaderInfo().getMetadataRecordIdentifier()
 						.getValue();
-
+				
 				// make sure we have the workflow we want to run and get it's
 				// details
 				WorkflowDetails workflow = getWorkflowDetails(workflowName);
@@ -396,7 +397,12 @@ public class WorkflowServiceImpl implements WorkflowService {
 					return;
 
 				try {
-					String archiveID = uploadArchive(storeClient, corpusId, outputDir);
+					String folder = workflowJob.getWorkflow().getComponentInfo().getOutputResourceInfo()
+							.getDataFormats().get(0).getDataFormat()
+							.equals(DataFormatType.HTTP___W3ID_ORG_META_SHARE_OMTD_SHARE_XMI) ? "annotations"
+									: "output";
+					
+					String archiveID = uploadArchive(storeClient, corpusId, folder, outputDir);
 
 					updateStatus(new ExecutionStatus(archiveID), workflowExecutionId,
 							jmsConfiguration.getWorkflowsExecution());
@@ -568,9 +574,9 @@ public class WorkflowServiceImpl implements WorkflowService {
 		getGalaxy().getWorkflowsClient().deleteWorkflow(workflowDetails.getId());
 	}
 
-	private static String uploadArchive(StoreRESTClient storeClient, String corpusId, Path archiveData) throws IOException {
+	private static String uploadArchive(StoreRESTClient storeClient, String corpusId, String folder, Path archiveData) throws IOException {
 		String archiveID = storeClient.cloneArchive(corpusId).getResponse();
-		String annotationsFolderId = storeClient.createSubArchive(archiveID, "annotations").getResponse();
+		String annotationsFolderId = storeClient.createSubArchive(archiveID, folder).getResponse();
 
 		Files.walk(archiveData).filter(path -> !Files.isDirectory(path)).forEach(path -> {
 			storeClient.storeFile(path.toFile(), annotationsFolderId, path.getFileName().toString());
