@@ -397,13 +397,11 @@ public class WorkflowServiceImpl implements WorkflowService {
 					return;
 
 				try {
-					String folder = workflowJob.getWorkflow().getComponentInfo().getOutputResourceInfo()
-							.getDataFormats().get(0).getDataFormat()
-							.equals(DataFormatType.HTTP___W3ID_ORG_META_SHARE_OMTD_SHARE_XMI) ? "annotations"
-									: "output";
-					
-					String archiveID = uploadArchive(storeClient, corpusId, folder, outputDir);
-
+					// Decide folder name for results.
+					String folderNameForResults = getFolderNameForResults(workflowJob);
+					// Upload archive with results to store.
+					String archiveID = uploadArchive(storeClient, corpusId, folderNameForResults, outputDir);
+					// Update status
 					updateStatus(new ExecutionStatus(archiveID), workflowExecutionId,
 							jmsConfiguration.getWorkflowsExecution());
 
@@ -450,6 +448,23 @@ public class WorkflowServiceImpl implements WorkflowService {
 		return workflowExecutionId.toString();
 	}
 
+	private String getFolderNameForResults(WorkflowJob workflowJob){
+		
+		String folder =  "output";
+		
+		try{
+			folder = workflowJob.getWorkflow().getComponentInfo().getOutputResourceInfo()
+					.getDataFormats().get(0).getDataFormat()
+					.equals(DataFormatType.HTTP___W3ID_ORG_META_SHARE_OMTD_SHARE_XMI) ? "annotations"
+							: "output";
+		}catch(Exception e){
+			log.info("Problem on selecting folder name.");
+		}
+		
+		return folder;
+	}
+	
+	
 	private void updateStatus(ExecutionStatus executionStatus, String workflowExecutionId, String topic) {
 		try {
 			Status status = executionStatus.getStatus();
