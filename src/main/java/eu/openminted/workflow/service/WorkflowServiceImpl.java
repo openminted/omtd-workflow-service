@@ -590,17 +590,22 @@ public class WorkflowServiceImpl implements WorkflowService {
 	}
 
 	private static String uploadArchive(StoreRESTClient storeClient, String corpusId, String folderWithResults, Path archiveData) throws IOException {
-		log.info("uploadArchive:" + corpusId + " folder:" + folderWithResults);
-		String archiveID = storeClient.cloneArchive(corpusId).getResponse();
-		String annotationsFolderId = storeClient.createSubArchive(archiveID, folderWithResults).getResponse();
-
+		log.info("uploadArchive");
+		log.info("initial corpus:" + corpusId + " folder:" + folderWithResults);
+		
+		String clonedArchiveID = storeClient.cloneArchive(corpusId).getResponse();
+		log.info("clone corpus:" + clonedArchiveID);
+		String annotationsFolderId = storeClient.createSubArchive(clonedArchiveID, folderWithResults).getResponse();
+		log.info("annotationsFolderId:" + annotationsFolderId);
+		
 		Files.walk(archiveData).filter(path -> !Files.isDirectory(path)).forEach(path -> {
 			storeClient.storeFile(path.toFile(), annotationsFolderId, path.getFileName().toString());
 		});
 
-		storeClient.finalizeArchive(archiveID);
-
-		return archiveID;
+		storeClient.finalizeArchive(clonedArchiveID);
+		log.info("finalizeArchive:" + clonedArchiveID);
+		
+		return clonedArchiveID;
 	}
 
 	// ---
