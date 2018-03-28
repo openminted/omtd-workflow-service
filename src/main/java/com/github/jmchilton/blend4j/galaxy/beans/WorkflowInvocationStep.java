@@ -52,12 +52,12 @@ public class WorkflowInvocationStep implements Comparable<WorkflowInvocationStep
 	}
 	
 	public String getWorkflowStepId() {
-		return id;
+		return workflowStepId;
 	}
 	
 	@JsonProperty("workflow_step_id")
 	public void setWorkflowStepId(String id) {
-		this.id = id;
+		this.workflowStepId = id;
 	}
 			
 	public String getLabel() {
