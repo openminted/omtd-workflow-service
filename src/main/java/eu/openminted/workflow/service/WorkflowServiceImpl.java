@@ -474,7 +474,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 			WorkflowExecution we = statusMonitor.get(workflowExecutionId);
 			log.info("local status monitor:" + we.getCorpusId() + " " + we.getExecutionId());
 			
-			// Build msg and send it to JMS.
+			// Build the required msg and send it to JMS.
 			Status status = executionStatus.getStatus();
 			log.info("updateStatus:" + topic + "-->" + status);
 			WorkflowExecutionStatusMessage msg = new WorkflowExecutionStatusMessage();
