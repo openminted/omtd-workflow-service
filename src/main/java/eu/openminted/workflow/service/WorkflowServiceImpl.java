@@ -402,7 +402,9 @@ public class WorkflowServiceImpl implements WorkflowService {
 					// Upload archive with results to store.
 					String archiveID = uploadArchive(storeClient, corpusId, folderNameForResults, outputDir);
 					// Update status
-					updateStatus(new ExecutionStatus(archiveID), workflowExecutionId,
+					ExecutionStatus finishedStat = new ExecutionStatus(archiveID);
+					log.info("finished archiveID" + archiveID);
+					updateStatus(finishedStat, workflowExecutionId,
 							jmsConfiguration.getWorkflowsExecution());
 
 				} catch (IOException e) {
@@ -467,11 +469,14 @@ public class WorkflowServiceImpl implements WorkflowService {
 	
 	private void updateStatus(ExecutionStatus executionStatus, String workflowExecutionId, String topic) {
 		try {
-			Status status = executionStatus.getStatus();
+			// Updated local status monitor.
 			statusMonitor.get(workflowExecutionId).setExecutionStatus(executionStatus);
-
+			WorkflowExecution we = statusMonitor.get(workflowExecutionId);
+			log.info("local status monitor:" + we.getCorpusId() + " " + we.getExecutionId());
+			
+			// Build msg and send it to JMS.
+			Status status = executionStatus.getStatus();
 			log.info("updateStatus:" + topic + "-->" + status);
-
 			WorkflowExecutionStatusMessage msg = new WorkflowExecutionStatusMessage();
 			msg.setWorkflowExecutionID(workflowExecutionId);
 			msg.setWorkflowStatus(status.toString());
@@ -916,6 +921,8 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 		protected void setExecutionStatus(ExecutionStatus status) {
 			this.status = status;
+			// result corpus 
+			this.corpusId = status.getCorpusID();
 		}
 	}
 }
