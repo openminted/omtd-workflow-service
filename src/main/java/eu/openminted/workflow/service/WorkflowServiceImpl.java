@@ -2,8 +2,10 @@ package eu.openminted.workflow.service;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLDecoder;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
@@ -142,6 +144,12 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 				String workflowName = workflowJob.getWorkflow().getMetadataHeaderInfo().getMetadataRecordIdentifier()
 						.getValue();
+				
+				try {
+					workflowName = URLDecoder.decode(workflowName, "UTF-8");
+				} catch (UnsupportedEncodingException e1) {
+					//should never happen
+				}
 				
 				// make sure we have the workflow we want to run and get it's
 				// details
