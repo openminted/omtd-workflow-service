@@ -17,8 +17,10 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
@@ -180,6 +182,37 @@ public class WorkflowServiceImpl implements WorkflowService {
 				if (!shouldContinue(workflowExecutionId))
 					return;
 
+				
+				StoreResponse storeResponse = storeClient.archiveExists(corpusId);
+				if (!Boolean.valueOf(storeResponse.getResponse())) {
+					// corpus doesn't exist in store
+					updateStatus(
+							new ExecutionStatus(
+									new WorkflowException("corpus with ID '" + corpusId + "' does not exist")),
+							workflowExecutionId, jmsConfiguration.getWorkflowsExecution());
+					
+					return;
+				}
+				
+				// not sure if we should ignore zip files or not but I don't any
+				// of the components will be supporting zip files so....
+				List<String> files = storeClient.listFiles(corpusId, false, true, true);
+				
+				//filter the files to just keep paths inside the fulltext folder
+				List<String> fulltext = files.stream().filter(f -> f.indexOf("/fulltext/") > -1).collect(Collectors.toList());
+				
+				if (fulltext.isEmpty()) {
+					updateStatus(
+							new ExecutionStatus(
+									new WorkflowException("corpus with ID '" + corpusId + "' is empty")),
+							workflowExecutionId, jmsConfiguration.getWorkflowsExecution());
+					
+					return;
+				}
+				
+				if (!shouldContinue(workflowExecutionId))
+					return;
+				
 				final History history = getGalaxy().getHistoriesClient()
 						.create(new History("OpenMinTeD - " + (new Date())));
 
@@ -199,7 +232,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 						String corpusZipFileName = corpusZip.getAbsolutePath();
 						corpusZip.delete();
 						log.info("download:" + corpusId + " to " + corpusZipFileName + " from " + storeEndpoint);
-						StoreResponse storeResponse = storeClient.downloadArchive(corpusId, corpusZipFileName);
+						storeResponse = storeClient.downloadArchive(corpusId, corpusZipFileName);
 
 						if (!storeResponse.getResponse().startsWith("true")) {
 							throw new IOException("Problem on downloading from STORE.");
