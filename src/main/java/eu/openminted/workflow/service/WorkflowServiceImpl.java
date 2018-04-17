@@ -15,6 +15,7 @@ import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -34,6 +35,7 @@ import org.springframework.stereotype.Component;
 import com.github.jmchilton.blend4j.galaxy.GalaxyInstance;
 import com.github.jmchilton.blend4j.galaxy.GalaxyInstanceFactory;
 import com.github.jmchilton.blend4j.galaxy.ToolsClient;
+import com.github.jmchilton.blend4j.galaxy.WorkflowsClient;
 import com.github.jmchilton.blend4j.galaxy.beans.Dataset;
 import com.github.jmchilton.blend4j.galaxy.beans.History;
 import com.github.jmchilton.blend4j.galaxy.beans.HistoryDetails;
@@ -120,7 +122,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 		// TODO fix userID getting it from workflowJob (when connection to redis exist)
 		exeStatus.setUserID("0931731143127784@openminted.eu");
 		exeStatus.setWorkflowId(workflowJob.getWorkflow().getMetadataHeaderInfo().getMetadataRecordIdentifier().getValue());
-		updateStatus(exeStatus, workflowExecutionId, jmsConfiguration.getWorkflowsExecution());
+		updateStatus(exeStatus, workflowExecutionId);
 
 		log.info("Starting workflow execution " + workflowExecutionId + " using Galaxy instance at "
 				+ galaxyInstanceUrl);
@@ -132,8 +134,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 				if (!shouldContinue(workflowExecutionId))
 					return;
 
-				updateStatus(new ExecutionStatus(Status.RUNNING), workflowExecutionId,
-						jmsConfiguration.getWorkflowsExecution());
+				updateStatus(new ExecutionStatus(Status.RUNNING), workflowExecutionId);
 
 				StoreRESTClient storeClient = new StoreRESTClient(storeEndpoint);
 
@@ -161,7 +162,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					log.info("Unable to locate workflow: " + workflowName);
 
 					updateStatus(new ExecutionStatus(new WorkflowException("Unable to locate named workflow")),
-							workflowExecutionId, jmsConfiguration.getWorkflowsExecution());
+							workflowExecutionId);
 					return;
 				}
 
@@ -189,7 +190,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					updateStatus(
 							new ExecutionStatus(
 									new WorkflowException("corpus with ID '" + corpusId + "' does not exist")),
-							workflowExecutionId, jmsConfiguration.getWorkflowsExecution());
+							workflowExecutionId);
 					
 					return;
 				}
@@ -205,7 +206,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					updateStatus(
 							new ExecutionStatus(
 									new WorkflowException("corpus with ID '" + corpusId + "' is empty")),
-							workflowExecutionId, jmsConfiguration.getWorkflowsExecution());
+							workflowExecutionId);
 					
 					return;
 				}
@@ -243,7 +244,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					} catch (IOException e) {
 						log.info("Unable to retrieve specified corpus with ID " + corpusId, e);
 
-						updateStatus(new ExecutionStatus(e), workflowExecutionId, jmsConfiguration.getWorkflowsExecution());
+						updateStatus(new ExecutionStatus(e), workflowExecutionId);
 						return;
 					}
 
@@ -343,7 +344,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					} catch (IOException | URISyntaxException e) {
 						log.error("Unable to upload corpus to Galaxy history", e);
 
-						updateStatus(new ExecutionStatus(e), workflowExecutionId, jmsConfiguration.getWorkflowsExecution());
+						updateStatus(new ExecutionStatus(e), workflowExecutionId);
 						return;
 					}
 
@@ -399,8 +400,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					if (outputs == null) {
 						// we failed to get the outputs
 						log.debug("error", "there were no outputs from the invocation");
-						updateStatus(new ExecutionStatus(ExecutionStatus.Status.FAILED), workflowExecutionId,
-								jmsConfiguration.getWorkflowsExecution());
+						updateStatus(new ExecutionStatus(ExecutionStatus.Status.FAILED), workflowExecutionId);
 						return;
 					}
 
@@ -417,7 +417,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					} catch (IOException e) {
 						log.error("Unable to create annotations output dir", e);
 
-						updateStatus(new ExecutionStatus(e), workflowExecutionId, jmsConfiguration.getWorkflowsExecution());
+						updateStatus(new ExecutionStatus(e), workflowExecutionId);
 						return;
 					}
 
@@ -430,7 +430,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 				} catch (Exception e) {
 					e.printStackTrace();
 					log.debug("error", e);
-					updateStatus(new ExecutionStatus(e), workflowExecutionId, jmsConfiguration.getWorkflowsExecution());
+					updateStatus(new ExecutionStatus(e), workflowExecutionId);
 					return;
 				}
 
@@ -445,13 +445,12 @@ public class WorkflowServiceImpl implements WorkflowService {
 					// Update status
 					ExecutionStatus finishedStat = new ExecutionStatus(archiveID);
 					log.info("finished archiveID" + archiveID);
-					updateStatus(finishedStat, workflowExecutionId,
-							jmsConfiguration.getWorkflowsExecution());
+					updateStatus(finishedStat, workflowExecutionId);
 
 				} catch (IOException e) {
 					log.info("unable to store workflow results", e);
 
-					updateStatus(new ExecutionStatus(e), workflowExecutionId, jmsConfiguration.getWorkflowsExecution());
+					updateStatus(new ExecutionStatus(e), workflowExecutionId);
 					return;
 				}
 
@@ -508,12 +507,19 @@ public class WorkflowServiceImpl implements WorkflowService {
 	}
 	
 	
-	private void updateStatus(ExecutionStatus executionStatus, String workflowExecutionId, String topic) {
+	private void updateStatus(ExecutionStatus executionStatus, String workflowExecutionId) {
 		try {
 			// Updated local status monitor.
-			statusMonitor.get(workflowExecutionId).setExecutionStatus(executionStatus);
+			WorkflowExecution executionDetails = statusMonitor.get(workflowExecutionId); 
+			executionDetails.setExecutionStatus(executionStatus);
+			
 			WorkflowExecution we = statusMonitor.get(workflowExecutionId);
 			log.info("local status monitor:" + we.getCorpusId() + " " + we.getExecutionId());
+			
+			
+			String topic = jmsConfiguration.getWorkflowsExecution();
+			
+			String invocationID = executionDetails.getInvocationId();
 			
 			// Build the required msg and send it to JMS.
 			Status status = executionStatus.getStatus();
@@ -532,6 +538,27 @@ public class WorkflowServiceImpl implements WorkflowService {
 			}
 			else if (Status.FAILED.equals(status)) {
 				msg.setError(executionStatus.getFailureCause().getMessage());
+			}
+			
+			if (invocationID != null) {
+				msg.setWorkflowInvocationID(invocationID);
+				
+				try {
+					
+					WorkflowsClient workflowsClient = getGalaxy().getWorkflowsClient();
+					
+					WorkflowInvocation details = workflowsClient.showInvocation(executionDetails.workflowId, invocationID);
+					
+					List<String> jobIDs = new ArrayList<String>();
+					for (WorkflowInvocationStep step : details.getWorkflowSteps()) {
+						jobIDs.add(step.getJobId());
+					}
+					
+					msg.setWorkflowJobIDs(String.join("|", jobIDs));
+				}
+				catch (Exception e) {
+					log.warn("unable to get invocation job IDs", e);
+				}
 			}
 
 			log.info("Sending to registry msg ::" + msg.toString());
@@ -583,7 +610,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					workflowExecution.getInvocationId());
 		}
 
-		updateStatus(new ExecutionStatus(Status.CANCELED), workflowExecutionId, jmsConfiguration.getWorkflowsExecution());
+		updateStatus(new ExecutionStatus(Status.CANCELED), workflowExecutionId);
 	}
 
 	@Override
@@ -597,7 +624,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 		if (!status.equals(Status.PENDING) && !status.equals(Status.RUNNING))
 			return;
 
-		updateStatus(new ExecutionStatus(Status.PAUSED), workflowExecutionId, jmsConfiguration.getWorkflowsExecution());
+		updateStatus(new ExecutionStatus(Status.PAUSED), workflowExecutionId);
 	}
 
 	@Override
@@ -611,7 +638,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 		if (!status.equals(Status.PAUSED))
 			return;
 
-		updateStatus(new ExecutionStatus(Status.RUNNING), workflowExecutionId, jmsConfiguration.getWorkflowsExecution());
+		updateStatus(new ExecutionStatus(Status.RUNNING), workflowExecutionId);
 	}
 
 	@Override
