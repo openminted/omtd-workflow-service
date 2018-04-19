@@ -856,14 +856,20 @@ public class WorkflowServiceImpl implements WorkflowService {
 			}
 
 			log.info("workflow steps size:" + invocation.getWorkflowSteps().size());
+			
+			for (WorkflowInvocationStep step : invocation.getWorkflowSteps()) {
+				//double check none of the steps are in the error state
+				if (step != null && "error".equals(step.getState())) {
+					throw new RuntimeException("final workflow state is in error");
+				}
+			}
+			
 			WorkflowInvocationStep step = invocation.getWorkflowSteps().get(stepCount - 1);
-
-			//should probablt check the state of all steps at this point not just the last one
 			
 			if (step != null) {
 				log.info("Step state:" + step.getState());
 
-				if (step.getState().equals("error")) {
+				if ("error".equals(step.getState())) {
 					throw new RuntimeException("final workflow state is in error");
 				}
 
