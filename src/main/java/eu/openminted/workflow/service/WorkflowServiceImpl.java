@@ -397,10 +397,10 @@ public class WorkflowServiceImpl implements WorkflowService {
 					if (!shouldContinue(workflowExecutionId))
 						return;
 
-					if (outputs == null) {
+					if (outputs == null || outputs.isEmpty()) {
 						// we failed to get the outputs
 						log.debug("error", "there were no outputs from the invocation");
-						updateStatus(new ExecutionStatus(ExecutionStatus.Status.FAILED), workflowExecutionId);
+						updateStatus(new ExecutionStatus(new RuntimeException("there were no outputs from workflow, workflow probably failed")), workflowExecutionId);
 						return;
 					}
 
@@ -830,82 +830,72 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 		// wait for all steps to have been added to the invocation
 		while (true) {
+			invocation = getGalaxy().getWorkflowsClient().showInvocation(workflowId, invocationId);
 
-			try {
-				invocation = getGalaxy().getWorkflowsClient().showInvocation(workflowId, invocationId);
-
-				if (invocation == null) {
-					log.info("invocation is null..returning");
-					// TODO should probably be an exception instead
-					return null;
-				}
-
-				log.info(invocation.getWorkflowSteps().size() + " == " + stepCount);
-
-				if (invocation.getWorkflowSteps().size() == stepCount) {
-					break;
-				}
-			} catch (Exception e) {
-				e.printStackTrace();
-				log.info(e.getMessage());
-				return null;
+			if (invocation == null) {
+				log.info("invocation is null..returning");
+				throw new RuntimeException("Invocation can't be found");
 			}
 
+			log.info(invocation.getWorkflowSteps().size() + " == " + stepCount);
+
+			if (invocation.getWorkflowSteps().size() == stepCount) {
+				break;
+			}
+			
 			Thread.sleep(WAIT_TIME);
 		}
 
 		while (true) {
-			try {
-				invocation = getGalaxy().getWorkflowsClient().showInvocation(workflowId, invocationId);
+			
+			invocation = getGalaxy().getWorkflowsClient().showInvocation(workflowId, invocationId);
 
-				if (invocation == null) {
-					log.info("invocation is null..returning");
-					return null;
+			if (invocation == null) {
+				log.info("invocation is null..returning");
+				throw new RuntimeException("Invocation can't be found");
+			}
+
+			log.info("workflow steps size:" + invocation.getWorkflowSteps().size());
+			WorkflowInvocationStep step = invocation.getWorkflowSteps().get(stepCount - 1);
+
+			//should probablt check the state of all steps at this point not just the last one
+			
+			if (step != null) {
+				log.info("Step state:" + step.getState());
+
+				if (step.getState().equals("error")) {
+					throw new RuntimeException("final workflow state is in error");
 				}
 
-				log.info("workflow steps size:" + invocation.getWorkflowSteps().size());
-				WorkflowInvocationStep step = invocation.getWorkflowSteps().get(stepCount - 1);
+				String jobId = step.getJobId();
 
-				if (step != null) {
-					log.info("Step state:" + step.getState());
+				JobDetails jobDetails = getGalaxy().getJobsClient().showJob(jobId);
+				log.info("JOB DETAILS: " + jobDetails.getState() + "|" + jobDetails.getExitCode());
 
-					if (step.getState().equals("error")) {
-						return null;
-					}
+			}
 
+			if (step != null && step.getState() != null && step.getState().equals("ok")) {
+
+				while (true) {
 					String jobId = step.getJobId();
-
 					JobDetails jobDetails = getGalaxy().getJobsClient().showJob(jobId);
 					log.info("JOB DETAILS: " + jobDetails.getState() + "|" + jobDetails.getExitCode());
 
-				}
+					if (jobDetails.getState().equals("ok") && jobDetails.getExitCode() != null) {
 
-				if (step != null && step.getState() != null && step.getState().equals("ok")) {
-
-					while (true) {
-						String jobId = step.getJobId();
-						JobDetails jobDetails = getGalaxy().getJobsClient().showJob(jobId);
-						log.info("JOB DETAILS: " + jobDetails.getState() + "|" + jobDetails.getExitCode());
-
-						if (jobDetails.getState().equals("ok") && jobDetails.getExitCode() != null) {
-
-							while (true) {
-								step = getGalaxy().getWorkflowsClient().showInvocationStep(workflowId, invocationId,
-										step.getId());
-								System.out.println("Step outputs: " + step.getOutputs());
-								if (step.getOutputs() != null && step.getOutputs().size() > 0)
-									return step.getOutputs();
-							}
+						while (true) {
+							step = getGalaxy().getWorkflowsClient().showInvocationStep(workflowId, invocationId,
+									step.getId());
+							System.out.println("Step outputs: " + step.getOutputs());
+							if (step.getOutputs() != null && step.getOutputs().size() > 0)
+								return step.getOutputs();
 						}
-
 					}
 
 				}
-			} catch (Exception e) {
-				e.printStackTrace();
-				log.info(e.getMessage());
-			}
 
+			}
+			
 			Thread.sleep(WAIT_TIME);
 		}
 	}
