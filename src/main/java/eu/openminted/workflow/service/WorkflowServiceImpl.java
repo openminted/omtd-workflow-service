@@ -215,7 +215,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					return;
 				
 				final History history = getGalaxy().getHistoriesClient()
-						.create(new History("OpenMinTeD - " + (new Date())));
+						.create(new History(workflowName + " - " + corpusId + ": "+(new Date())));
 
 				boolean workflowContainsImporter = "omtdImporter".equals(workflow.getSteps().get("0").getToolID());
 				
