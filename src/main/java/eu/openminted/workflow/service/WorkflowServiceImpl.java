@@ -492,7 +492,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 	private String getFolderNameForResults(WorkflowJob workflowJob){
 		
-		String folder =  "output";
+		String folder =  "annotations";
 		
 		try{
 			folder = workflowJob.getWorkflow().getComponentInfo().getOutputResourceInfo()
