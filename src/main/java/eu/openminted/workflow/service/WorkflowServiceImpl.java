@@ -15,14 +15,12 @@ import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
+import eu.openminted.registry.core.service.ServiceException;
+import eu.openminted.registry.domain.ResourceIdentifier;
+import eu.openminted.registry.domain.ResourceIdentifierSchemeNameEnum;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -121,7 +119,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 		exeStatus.setCorpusID(workflowJob.getCorpusId());
 		// TODO fix userID getting it from workflowJob (when connection to redis exist)
 		exeStatus.setUserID("0931731143127784@openminted.eu");
-		exeStatus.setWorkflowId(workflowJob.getWorkflow().getMetadataHeaderInfo().getMetadataRecordIdentifier().getValue());
+		exeStatus.setWorkflowId(resolveApplicationWorkflow(workflowJob.getWorkflow()));
 		updateStatus(exeStatus, workflowExecutionId);
 
 		log.info("Starting workflow execution " + workflowExecutionId + " using Galaxy instance at "
@@ -988,5 +986,20 @@ public class WorkflowServiceImpl implements WorkflowService {
 			// result corpus 
 			this.corpusId = status.getCorpusID();
 		}
+	}
+
+
+	public static String resolveApplicationWorkflow(eu.openminted.registry.domain.Component application) {
+		if (application == null) {
+			throw new ServiceException("Application with id not found");
+		}
+		List<ResourceIdentifier> applicationIdentifiers = application.getComponentInfo().getIdentificationInfo().getResourceIdentifiers();
+		Optional<ResourceIdentifier> workflowIdentifier = applicationIdentifiers.stream()
+				.filter(identifier -> identifier.getResourceIdentifierSchemeName().equals(ResourceIdentifierSchemeNameEnum.OTHER)
+						&& identifier.getSchemeURI().equals("workflowName")).findAny();
+		if (!workflowIdentifier.isPresent()) {
+			throw new ServiceException("No workflow name found in this application");
+		}
+		return workflowIdentifier.get().getValue();
 	}
 }
