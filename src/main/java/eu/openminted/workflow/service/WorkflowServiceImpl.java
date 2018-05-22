@@ -119,7 +119,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 		exeStatus.setCorpusID(workflowJob.getCorpusId());
 		// TODO fix userID getting it from workflowJob (when connection to redis exist)
 		exeStatus.setUserID("0931731143127784@openminted.eu");
-		exeStatus.setWorkflowId(resolveApplicationWorkflow(workflowJob.getWorkflow()));
+		exeStatus.setWorkflowId(workflowJob.getWorkflow().getMetadataHeaderInfo().getMetadataRecordIdentifier().getValue());
 		updateStatus(exeStatus, workflowExecutionId);
 
 		log.info("Starting workflow execution " + workflowExecutionId + " using Galaxy instance at "
@@ -143,8 +143,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 				// * stored?
 				 
 
-				String workflowName = workflowJob.getWorkflow().getMetadataHeaderInfo().getMetadataRecordIdentifier()
-						.getValue();
+				String workflowName = resolveApplicationWorkflow(workflowJob.getWorkflow());
 				
 				try {
 					workflowName = URLDecoder.decode(workflowName, "UTF-8");
