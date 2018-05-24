@@ -857,7 +857,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 			for (WorkflowInvocationStep step : invocation.getWorkflowSteps()) {
 				//double check none of the steps are in the error state
 				if (step != null && "error".equals(step.getState())) {
-					throw new RuntimeException("a workflow state is in error");
+					throw new RuntimeException("a workflow state is in error: "+workflowId+"/"+invocationId+"/"+step.getId()+"/"+step.getJobId());
 				}
 			}
 			
@@ -867,7 +867,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 				log.info("Step state:" + step.getState());
 
 				if ("error".equals(step.getState())) {
-					throw new RuntimeException("final workflow state is in error");
+					throw new RuntimeException("final workflow state is in error: "+workflowId+"/"+invocationId+"/"+step.getId()+"/"+step.getJobId());
 				}
 
 				String jobId = step.getJobId();
