@@ -15,12 +15,15 @@ import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
-import eu.openminted.registry.core.service.ServiceException;
-import eu.openminted.registry.domain.ResourceIdentifier;
-import eu.openminted.registry.domain.ResourceIdentifierSchemeNameEnum;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,7 +57,10 @@ import com.github.jmchilton.blend4j.galaxy.beans.collection.request.CollectionDe
 import com.github.jmchilton.blend4j.galaxy.beans.collection.request.HistoryDatasetElement;
 import com.github.jmchilton.blend4j.galaxy.beans.collection.response.CollectionResponse;
 
+import eu.openminted.registry.core.service.ServiceException;
 import eu.openminted.registry.domain.DataFormatType;
+import eu.openminted.registry.domain.ResourceIdentifier;
+import eu.openminted.registry.domain.ResourceIdentifierSchemeNameEnum;
 import eu.openminted.store.common.StoreResponse;
 import eu.openminted.store.restclient.StoreRESTClient;
 import eu.openminted.workflow.api.ExecutionStatus;
@@ -115,12 +121,11 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 		statusMonitor.put(workflowExecutionId, new WorkflowExecution(workflowExecutionId));
 
-		ExecutionStatus exeStatus =  new ExecutionStatus(Status.PENDING);
-		exeStatus.setCorpusID(workflowJob.getCorpusId());
 		// TODO fix userID getting it from workflowJob (when connection to redis exist)
-		exeStatus.setUserID("0931731143127784@openminted.eu");
-		exeStatus.setWorkflowId(workflowJob.getWorkflow().getMetadataHeaderInfo().getMetadataRecordIdentifier().getValue());
-		updateStatus(exeStatus, workflowExecutionId, null);
+		updateStatus(
+				new ExecutionStatus("0931731143127784@openminted.eu", workflowJob.getCorpusId(),
+						workflowJob.getWorkflow().getMetadataHeaderInfo().getMetadataRecordIdentifier().getValue()),
+				workflowExecutionId, null);
 
 		log.info("Starting workflow execution " + workflowExecutionId + " using Galaxy instance at "
 				+ galaxyInstanceUrl);
@@ -132,7 +137,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 				if (!shouldContinue(workflowExecutionId))
 					return;
 
-				updateStatus(new ExecutionStatus(Status.RUNNING), workflowExecutionId, "collecting workflow data and corpora");
+				updateStatus(new ExecutionStatus(statusMonitor.get(workflowExecutionId).getExecutionStatus(), Status.RUNNING), workflowExecutionId, "collecting workflow data and corpora");
 
 				StoreRESTClient storeClient = new StoreRESTClient(storeEndpoint);
 
@@ -158,7 +163,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 				if (workflow == null) {
 					log.info("Unable to locate workflow: " + workflowName);
 
-					updateStatus(new ExecutionStatus(new WorkflowException("Unable to locate named workflow")),
+					updateStatus(new ExecutionStatus(statusMonitor.get(workflowExecutionId).getExecutionStatus(),new WorkflowException("Unable to locate named workflow")),
 							workflowExecutionId,null);
 					return;
 				}
@@ -185,7 +190,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 				if (!Boolean.valueOf(storeResponse.getResponse())) {
 					// corpus doesn't exist in store
 					updateStatus(
-							new ExecutionStatus(
+							new ExecutionStatus(statusMonitor.get(workflowExecutionId).getExecutionStatus(),
 									new WorkflowException("corpus with ID '" + corpusId + "' does not exist")),
 							workflowExecutionId,null);
 					
@@ -201,7 +206,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 				
 				if (fulltext.isEmpty()) {
 					updateStatus(
-							new ExecutionStatus(
+							new ExecutionStatus(statusMonitor.get(workflowExecutionId).getExecutionStatus(),
 									new WorkflowException("corpus with ID '" + corpusId + "' is empty")),
 							workflowExecutionId,null);
 					
@@ -224,7 +229,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 				if (!workflowContainsImporter) {
 					
-					updateStatus(new ExecutionStatus(Status.RUNNING), workflowExecutionId, "Copying corpus to workflow executor");
+					updateStatus(new ExecutionStatus(statusMonitor.get(workflowExecutionId).getExecutionStatus(),Status.RUNNING), workflowExecutionId, "Copying corpus to workflow executor");
 
 					File corpusZip;
 					try {
@@ -243,7 +248,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					} catch (IOException e) {
 						log.info("Unable to retrieve specified corpus with ID " + corpusId, e);
 
-						updateStatus(new ExecutionStatus(e), workflowExecutionId, null);
+						updateStatus(new ExecutionStatus(statusMonitor.get(workflowExecutionId).getExecutionStatus(),e), workflowExecutionId, null);
 						return;
 					}
 
@@ -343,7 +348,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					} catch (IOException | URISyntaxException e) {
 						log.error("Unable to upload corpus to Galaxy history", e);
 
-						updateStatus(new ExecutionStatus(e), workflowExecutionId,null);
+						updateStatus(new ExecutionStatus(statusMonitor.get(workflowExecutionId).getExecutionStatus(),e), workflowExecutionId,null);
 						return;
 					}
 
@@ -357,7 +362,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 					log.info("Configuring input");
 					
-					updateStatus(new ExecutionStatus(Status.RUNNING), workflowExecutionId, "configuing workflow input");
+					updateStatus(new ExecutionStatus(statusMonitor.get(workflowExecutionId).getExecutionStatus(),Status.RUNNING), workflowExecutionId, "configuing workflow input");
 
 					workflowInputs.setInput(workflowInputId, new WorkflowInputs.WorkflowInput(inputCollection.getId(),
 							WorkflowInputs.InputSourceType.HDCA));
@@ -401,7 +406,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					if (outputs == null || outputs.isEmpty()) {
 						// we failed to get the outputs
 						log.debug("error", "there were no outputs from the invocation");
-						updateStatus(new ExecutionStatus(new RuntimeException("there were no outputs from workflow, workflow probably failed")), workflowExecutionId, null);
+						updateStatus(new ExecutionStatus(statusMonitor.get(workflowExecutionId).getExecutionStatus(),new RuntimeException("there were no outputs from workflow, workflow probably failed")), workflowExecutionId, null);
 						return;
 					}
 
@@ -410,7 +415,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					// invocation ouput?
 					waitForHistory(history.getId());
 					
-					updateStatus(new ExecutionStatus(Status.RUNNING), workflowExecutionId, "collecting workflow outputs");
+					updateStatus(new ExecutionStatus(statusMonitor.get(workflowExecutionId).getExecutionStatus(),Status.RUNNING), workflowExecutionId, "collecting workflow outputs");
 
 					if (!shouldContinue(workflowExecutionId))
 						return;
@@ -420,7 +425,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					} catch (IOException e) {
 						log.error("Unable to create annotations output dir", e);
 
-						updateStatus(new ExecutionStatus(e), workflowExecutionId,null);
+						updateStatus(new ExecutionStatus(statusMonitor.get(workflowExecutionId).getExecutionStatus(),e), workflowExecutionId,null);
 						return;
 					}
 
@@ -433,7 +438,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 				} catch (Exception e) {
 					e.printStackTrace();
 					log.debug("error", e);
-					updateStatus(new ExecutionStatus(e), workflowExecutionId, null);
+					updateStatus(new ExecutionStatus(statusMonitor.get(workflowExecutionId).getExecutionStatus(),e), workflowExecutionId, null);
 					return;
 				}
 
@@ -446,14 +451,14 @@ public class WorkflowServiceImpl implements WorkflowService {
 					// Upload archive with results to store.
 					String archiveID = uploadArchive(storeClient, corpusId, folderNameForResults, outputDir);
 					// Update status
-					ExecutionStatus finishedStat = new ExecutionStatus(archiveID);
+					ExecutionStatus finishedStat = new ExecutionStatus(statusMonitor.get(workflowExecutionId).getExecutionStatus(),archiveID);
 					log.info("finished archiveID" + archiveID);
 					updateStatus(finishedStat, workflowExecutionId, "workflow successfully completed");
 
 				} catch (IOException e) {
 					log.info("unable to store workflow results", e);
 
-					updateStatus(new ExecutionStatus(e), workflowExecutionId, null);
+					updateStatus(new ExecutionStatus(statusMonitor.get(workflowExecutionId).getExecutionStatus(),e), workflowExecutionId, null);
 					return;
 				}
 
@@ -512,6 +517,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 	
 	private void updateStatus(ExecutionStatus executionStatus, String workflowExecutionId, String statusDescription) {
 		try {
+			
 			// Updated local status monitor.
 			WorkflowExecution executionDetails = statusMonitor.get(workflowExecutionId); 
 			executionDetails.setExecutionStatus(executionStatus);
@@ -530,13 +536,13 @@ public class WorkflowServiceImpl implements WorkflowService {
 			WorkflowExecutionStatusMessage msg = new WorkflowExecutionStatusMessage();
 			msg.setWorkflowExecutionID(workflowExecutionId);
 			msg.setWorkflowStatus(status.toString());
+			msg.setWorkflowStatusDescription(statusDescription);
+
+			msg.setCorpusID(executionStatus.getCorpusID());
+			msg.setUserID(executionStatus.getUserID());
+			msg.setWorkflowID(executionStatus.getWorkflowId()); 
 			
-			if (Status.PENDING.equals(status)) {
-				msg.setCorpusID(executionStatus.getCorpusID());
-				msg.setUserID(executionStatus.getUserID());
-				msg.setWorkflowID(executionStatus.getWorkflowId());
-			} 
-			else if (Status.FINISHED.equals(status)) {
+			if (Status.FINISHED.equals(status)) {
 				msg.setResultingCorpusID(executionStatus.getCorpusID());
 			}
 			else if (Status.FAILED.equals(status)) {
@@ -613,7 +619,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					workflowExecution.getInvocationId());
 		}
 
-		updateStatus(new ExecutionStatus(Status.CANCELED), workflowExecutionId, null);
+		updateStatus(new ExecutionStatus(statusMonitor.get(workflowExecutionId).getExecutionStatus(),Status.CANCELED), workflowExecutionId, null);
 	}
 
 	@Override
@@ -627,7 +633,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 		if (!status.equals(Status.PENDING) && !status.equals(Status.RUNNING))
 			return;
 
-		updateStatus(new ExecutionStatus(Status.PAUSED), workflowExecutionId, null);
+		updateStatus(new ExecutionStatus(statusMonitor.get(workflowExecutionId).getExecutionStatus(),Status.PAUSED), workflowExecutionId, null);
 	}
 
 	@Override
@@ -641,7 +647,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 		if (!status.equals(Status.PAUSED))
 			return;
 
-		updateStatus(new ExecutionStatus(Status.RUNNING), workflowExecutionId, null);
+		updateStatus(new ExecutionStatus(statusMonitor.get(workflowExecutionId).getExecutionStatus(),Status.RUNNING), workflowExecutionId, null);
 	}
 
 	@Override
@@ -849,7 +855,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 			Thread.sleep(WAIT_TIME);
 		}
 		
-		updateStatus(new ExecutionStatus(Status.RUNNING), workflowExecutionId, "all workflow steps have been initialised");
+		updateStatus(new ExecutionStatus(statusMonitor.get(workflowExecutionId).getExecutionStatus(),Status.RUNNING), workflowExecutionId, "all workflow steps have been initialised");
 
 		while (true) {
 			
@@ -887,7 +893,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 			if (step != null && step.getState() != null && step.getState().equals("ok")) {
 				
-				updateStatus(new ExecutionStatus(Status.RUNNING), workflowExecutionId, "final workflow step is running");
+				updateStatus(new ExecutionStatus(statusMonitor.get(workflowExecutionId).getExecutionStatus(),Status.RUNNING), workflowExecutionId, "final workflow step is running");
 
 				while (true) {
 					String jobId = step.getJobId();
@@ -896,7 +902,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 					if (jobDetails.getState().equals("ok") && jobDetails.getExitCode() != null) {
 						
-						updateStatus(new ExecutionStatus(Status.RUNNING), workflowExecutionId, "final workflow step has completed, collecting output");
+						updateStatus(new ExecutionStatus(statusMonitor.get(workflowExecutionId).getExecutionStatus(),Status.RUNNING), workflowExecutionId, "final workflow step has completed, collecting output");
 
 						while (true) {
 							step = getGalaxy().getWorkflowsClient().showInvocationStep(workflowId, invocationId,
