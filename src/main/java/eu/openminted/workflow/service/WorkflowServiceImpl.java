@@ -57,6 +57,7 @@ import com.github.jmchilton.blend4j.galaxy.beans.collection.request.CollectionDe
 import com.github.jmchilton.blend4j.galaxy.beans.collection.request.HistoryDatasetElement;
 import com.github.jmchilton.blend4j.galaxy.beans.collection.response.CollectionResponse;
 
+import eu.openminted.corpus.OMTDCorpus;
 import eu.openminted.registry.core.service.ServiceException;
 import eu.openminted.registry.domain.DataFormatType;
 import eu.openminted.registry.domain.ResourceIdentifier;
@@ -129,7 +130,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 		log.info("Starting workflow execution " + workflowExecutionId + " using Galaxy instance at "
 				+ galaxyInstanceUrl);
-
+		
 		Runnable runner = new Runnable() {
 
 			@Override
@@ -262,7 +263,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 					try (FileSystem zipFs = FileSystems
 							.newFileSystem(new URI("jar:" + corpusZip.getAbsoluteFile().toURI()), new HashMap<>());) {
 
-						Path pathInZip = zipFs.getPath("/" + corpusId, "fulltext");
+						Path pathInZip = zipFs.getPath("/" + corpusId, OMTDCorpus.subArchiveFullText);
 
 						Files.walkFileTree(pathInZip, new SimpleFileVisitor<Path>() {
 							@Override
@@ -366,10 +367,13 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 					workflowInputs.setInput(workflowInputId, new WorkflowInputs.WorkflowInput(inputCollection.getId(),
 							WorkflowInputs.InputSourceType.HDCA));
-				}
-				else {
-					log.info("Setting corpus ID on omtdImporter");
-					workflowInputs.setStepParameter("0","omtdStoreCorpusID",corpusId);
+				}else{
+					log.info("Configuring " + OMTDImporter.class.getName());
+					
+					log.info("Setting corpus ID on " + OMTDImporter.class.getName());
+					workflowInputs.setStepParameter("0", OMTDImporter.omtdStoreCorpusID, corpusId);
+					log.info("Setting subarchive on " + OMTDImporter.class.getName());
+					workflowInputs.setStepParameter("0", OMTDImporter.omtdSubArchive, workflowJob.getSubArchive());
 				}
 
 				//setParameters(workflow, workflowInputs);
@@ -500,13 +504,13 @@ public class WorkflowServiceImpl implements WorkflowService {
 
 	private String getFolderNameForResults(WorkflowJob workflowJob){
 		
-		String folder =  "annotations";
+		String folder =  OMTDCorpus.subArchiveAnnotations;
 		
 		try{
 			folder = workflowJob.getWorkflow().getComponentInfo().getOutputResourceInfo()
 					.getDataFormats().get(0).getDataFormat()
-					.equals(DataFormatType.HTTP___W3ID_ORG_META_SHARE_OMTD_SHARE_XMI) ? "annotations"
-							: "output";
+					.equals(DataFormatType.HTTP___W3ID_ORG_META_SHARE_OMTD_SHARE_XMI) ? OMTDCorpus.subArchiveAnnotations
+							: OMTDCorpus.subArchiveOutput;
 		}catch(Exception e){
 			log.info("Problem on selecting folder name.");
 		}
