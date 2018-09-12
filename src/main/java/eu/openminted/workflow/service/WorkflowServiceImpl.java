@@ -370,9 +370,9 @@ public class WorkflowServiceImpl implements WorkflowService {
 				}else{
 					log.info("Configuring " + OMTDImporter.class.getName());
 					
-					log.info("Setting corpus ID on " + OMTDImporter.class.getName());
+					log.info("Setting corpus ID on " + OMTDImporter.class.getName() + " " + corpusId);
 					workflowInputs.setStepParameter("0", OMTDImporter.omtdStoreCorpusID, corpusId);
-					log.info("Setting subarchive on " + OMTDImporter.class.getName());
+					log.info("Setting subarchive on " + OMTDImporter.class.getName() + " " + workflowJob.getSubArchive());
 					workflowInputs.setStepParameter("0", OMTDImporter.omtdSubArchive, workflowJob.getSubArchive());
 				}
 
