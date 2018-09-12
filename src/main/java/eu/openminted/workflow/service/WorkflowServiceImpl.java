@@ -201,18 +201,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 				// not sure if we should ignore zip files or not but I don't any
 				// of the components will be supporting zip files so....
 				List<String> files = storeClient.listFiles(corpusId, false, true, true);
-				
-				//filter the files to just keep paths inside the fulltext folder
-				List<String> fulltext = files.stream().filter(f -> f.indexOf("/fulltext/") > -1).collect(Collectors.toList());
-				
-				if (fulltext.isEmpty()) {
-					updateStatus(
-							new ExecutionStatus(statusMonitor.get(workflowExecutionId).getExecutionStatus(),
-									new WorkflowException("corpus with ID '" + corpusId + "' is empty")),
-							workflowExecutionId,null);
-					
-					return;
-				}
+				checkCorpusHasFilesToProcess(files, workflowJob.getSubArchive(),  workflowExecutionId, corpusId);
 				
 				if (!shouldContinue(workflowExecutionId))
 					return;
@@ -956,6 +945,25 @@ public class WorkflowServiceImpl implements WorkflowService {
 		}
 	}
 
+	public void checkCorpusHasFilesToProcess(List<String> files, String subArchive, String workflowExecutionId, String corpusId){
+		log.info("checkCorpusHasFilesToProcess");
+		
+		//filter the files to just keep paths inside the subArchive folder
+		List<String> toBeProcessed = files.stream().filter(f -> f.indexOf("/" + subArchive + "/") > -1).collect(Collectors.toList());
+		
+		if (toBeProcessed == null || toBeProcessed.isEmpty()) {
+			log.info("checkCorpusHasFilesToProcess->Problem with to be processed folder" );
+			updateStatus(
+					new ExecutionStatus(statusMonitor.get(workflowExecutionId).getExecutionStatus(),
+							new WorkflowException("corpus with ID '" + corpusId + "' is empty")),
+					workflowExecutionId,null);
+			
+			return;
+		}else{
+			log.info("checkCorpusHasFilesToProcess->" + toBeProcessed.size());
+		}
+	}
+	
 	private static class WorkflowExecution {
 		private String executionId, workflowId, invocationId, corpusId;
 
@@ -1009,7 +1017,8 @@ public class WorkflowServiceImpl implements WorkflowService {
 		}
 	}
 
-
+	
+	
 	public static String resolveApplicationWorkflow(eu.openminted.registry.domain.Component application) {
 		if (application == null) {
 			throw new ServiceException("Application with id not found");
