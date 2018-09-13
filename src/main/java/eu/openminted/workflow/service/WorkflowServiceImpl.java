@@ -209,9 +209,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 				final History history = getGalaxy().getHistoriesClient()
 						.create(new History(workflowName + " - " + corpusId + ": "+(new Date())));
 
-				boolean workflowContainsImporter = "omtdImporter".equals(workflow.getSteps().get("0").getToolID());
-				
-				log.info("Workflow starts with OMTD Importer: " + workflowContainsImporter);
+				boolean workflowContainsImporter = workflowContainsOMTDImporter(workflow);
 
 				WorkflowInvocationInputs workflowInputs = new WorkflowInvocationInputs();
 				workflowInputs.setDestination(new WorkflowInputs.ExistingHistory(history.getId()));
@@ -742,6 +740,12 @@ public class WorkflowServiceImpl implements WorkflowService {
 		return execution.getOutputs().get(0);
 	}
 
+	private boolean workflowContainsOMTDImporter(WorkflowDetails workflow){
+		boolean  containsOMTDImporter = "omtdImporter".equals(workflow.getSteps().get("0").getToolID());
+		log.info("Workflow starts with OMTD Importer: " + containsOMTDImporter);
+		return containsOMTDImporter;
+	}
+	
 	private String getWorkflowInputId(WorkflowDetails workflowDetails, String inputLabel) {
 		String workflowInputId = null;
 
