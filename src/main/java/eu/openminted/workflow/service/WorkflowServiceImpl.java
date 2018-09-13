@@ -252,16 +252,15 @@ public class WorkflowServiceImpl implements WorkflowService {
 					try (FileSystem zipFs = FileSystems
 							.newFileSystem(new URI("jar:" + corpusZip.getAbsoluteFile().toURI()), new HashMap<>());) {
 
-						Path pathInZip = zipFs.getPath("/" + corpusId, OMTDCorpus.subArchiveFullText);
+						Path pathInZip = zipFs.getPath("/" + corpusId, workflowJob.getSubArchive());
 
 						Files.walkFileTree(pathInZip, new SimpleFileVisitor<Path>() {
 							@Override
 							public FileVisitResult visitFile(Path filePath, BasicFileAttributes attrs)
 									throws IOException {
 
-								// TODO check how filenames get used if there is
-								// a
-								// folder inside fulltext as we don't want name
+								// TO-DO: check how filenames get used if there is
+								// a folder inside subarchive folder (e.g. fulltext) as we don't want name
 								// clashes if we end up flattening the dir
 								// structure
 
